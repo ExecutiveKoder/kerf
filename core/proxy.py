@@ -88,11 +88,47 @@ class ProxyServer:
 
         if scheme_host:  # came off a decrypted TLS tunnel; target is origin-form
             url = scheme_host.rstrip("/") + target
-        else:            # absolute-form target from a plain proxy request
-            url = target
+        elif target.startswith("http://") or target.startswith("https://"):
+            url = target  # normal absolute-form request from a configured proxy client
+        else:
+            # Origin-form request straight to the proxy port. This means the client
+            # is NOT using us as a proxy (e.g. someone opened the proxy address in a
+            # browser). Rebuild from Host if it points somewhere real; if it points
+            # back at us or is missing, show a help page instead of dialing nowhere.
+            host_hdr = next((v for k, v in headers if k.lower() == "host"), "").strip()
+            own = {f"127.0.0.1:{self.port}", f"localhost:{self.port}",
+                   f"[::1]:{self.port}", f"{self.host}:{self.port}"}
+            if not host_hdr or host_hdr in own:
+                await self._write_help(writer)
+                return
+            url = f"http://{host_hdr}{target}"
 
         req = HttpRequest(method, url, headers, body, version)
         await self._proxy_and_relay(req, writer)
+
+    async def _write_help(self, writer) -> None:
+        body = (
+            "<!doctype html><meta charset=utf-8>"
+            "<title>DastDay proxy</title>"
+            "<body style='font-family:system-ui;max-width:640px;margin:48px auto;"
+            "color:#1a2234;line-height:1.5'>"
+            "<h2>This is the DastDay proxy port</h2>"
+            "<p>You reached the proxy directly. It's meant to be set as your browser's "
+            "<b>HTTP/HTTPS proxy</b>, not opened in the address bar.</p>"
+            "<ol><li>Open the <b>web UI</b> on the UI port (default "
+            "<code>127.0.0.1:8000</code>).</li>"
+            "<li>In your browser/OS network settings, set the HTTP and HTTPS proxy to "
+            f"<code>{self.host}:{self.port}</code>.</li>"
+            "<li>Install the DastDay CA from the UI's Setup tab so HTTPS validates.</li>"
+            "<li>Browse normally; traffic appears under Proxy history.</li></ol>"
+            "</body>")
+        resp = (
+            "HTTP/1.1 421 Misdirected Request\r\n"
+            "Content-Type: text/html; charset=utf-8\r\n"
+            f"Content-Length: {len(body.encode())}\r\n"
+            "Connection: close\r\n\r\n" + body)
+        writer.write(resp.encode())
+        await writer.drain()
 
     # ------------------------------------------------------------ CONNECT
 
@@ -166,6 +202,13 @@ class ProxyServer:
     async def _send_upstream(self, req: HttpRequest) -> HttpResponse:
         parts = urlsplit(req.url)
         host = parts.hostname or ""
+        if not host:
+            return HttpResponse(400, "Bad Request",
+                                [("Content-Type", "text/plain")],
+                                (b"DastDay: no target host in the request. If you are "
+                                 b"using Repeater, include a 'Host:' header. If this came "
+                                 b"from a browser, set DastDay as the proxy rather than "
+                                 b"connecting to it directly."))
         port = parts.port or (443 if parts.scheme == "https" else 80)
         ssl_ctx = None
         if parts.scheme == "https":

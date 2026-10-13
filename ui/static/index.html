@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DastDay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* instrument-panel ground, not hacker-black */
+    --ground: #121827;
+    --surface: #1a2234;
+    --surface-2: #212c42;
+    --line: #2b3755;
+    --line-soft: #222d45;
+    --ink: #e8edf7;
+    --ink-dim: #9aa7c2;
+    --ink-faint: #64718f;
+    --accent: #e8a04f;         /* amber — interactive only */
+    --accent-ink: #1a1205;
+    /* HTTP semantic signal colors = the information itself */
+    --m-get: #5fb0e8; --m-post: #7dd3a8; --m-put: #d8b36a;
+    --m-del: #e8807f; --m-other: #b79ae0;
+    --s2: #6fcf97; --s3: #6aa8e8; --s4: #e0b25a; --s5: #e8807f;
+    --sev-high: #e8807f; --sev-med: #e0b25a; --sev-low: #6aa8e8; --sev-info: #7e8aa6;
+    --ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--ui); font-size: 13px; line-height: 1.5;
+    display: grid; grid-template-columns: 208px 1fr; grid-template-rows: 1fr 26px;
+    grid-template-areas: "rail work" "rail status"; height: 100vh; overflow: hidden;
+  }
+
+  /* ---------------- left rail ---------------- */
+  .rail { grid-area: rail; background: var(--surface); border-right: 1px solid var(--line);
+          display: flex; flex-direction: column; min-height: 0; }
+  .brand { padding: 18px 18px 14px; border-bottom: 1px solid var(--line-soft); }
+  .brand .name { font-weight: 700; font-size: 15px; letter-spacing: -0.2px; }
+  .brand .name b { color: var(--accent); font-weight: 700; }
+  .brand .sub { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
+                margin-top: 3px; letter-spacing: 0.3px; }
+  .nav { padding: 10px 8px; overflow-y: auto; flex: 1; }
+  .nav .group { font-size: 10.5px; font-weight: 600; color: var(--ink-faint);
+                padding: 12px 10px 5px; letter-spacing: 0.4px; }
+  .nav button { display: flex; align-items: center; gap: 10px; width: 100%;
+                background: none; border: none; color: var(--ink-dim); cursor: pointer;
+                padding: 8px 10px; border-radius: 7px; font-family: var(--ui);
+                font-size: 13px; text-align: left; transition: background .12s, color .12s; }
+  .nav button:hover { background: var(--surface-2); color: var(--ink); }
+  .nav button.active { background: var(--surface-2); color: var(--ink); }
+  .nav button.active .ic { color: var(--accent); }
+  .nav .ic { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
+  .nav button.active { position: relative; }
+  .nav button.active::before { content:""; position:absolute; left:-8px; top:6px; bottom:6px;
+                width:3px; border-radius:0 3px 3px 0; background: var(--accent); }
+  .nav .tag { margin-left: auto; font-family: var(--mono); font-size: 10px;
+              color: var(--ink-faint); background: var(--ground); padding: 1px 6px;
+              border-radius: 10px; border: 1px solid var(--line-soft); }
+
+  /* ---------------- work area ---------------- */
+  .work { grid-area: work; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .view { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  .view.active { display: flex; }
+  .viewhead { padding: 16px 20px 12px; border-bottom: 1px solid var(--line-soft); }
+  .viewhead h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+  .viewhead p { margin: 3px 0 0; color: var(--ink-dim); font-size: 12.5px; max-width: 70ch; }
+  .viewbody { padding: 16px 20px; overflow: auto; flex: 1; min-height: 0; }
+
+  /* toolbar + controls */
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  input, select, textarea {
+    background: var(--ground); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 10px; font-family: var(--mono); font-size: 12px;
+    outline: none; transition: border-color .12s, box-shadow .12s; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,160,79,.14); }
+  input::placeholder { color: var(--ink-faint); }
+  textarea { width: 100%; resize: vertical; line-height: 1.55; }
+  label.fld { display: block; font-size: 11px; font-weight: 500; color: var(--ink-dim);
+              margin: 0 0 6px; letter-spacing: 0.2px; }
+  button.btn { font-family: var(--ui); font-size: 12.5px; font-weight: 500; cursor: pointer;
+               border-radius: 7px; padding: 7px 14px; border: 1px solid var(--line);
+               background: var(--surface-2); color: var(--ink); transition: all .12s; }
+  button.btn:hover { border-color: var(--ink-faint); }
+  button.btn.primary { background: var(--accent); color: var(--accent-ink);
+                       border-color: var(--accent); font-weight: 600; }
+  button.btn.primary:hover { filter: brightness(1.07); }
+
+  /* ---------------- history split ---------------- */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; flex: 1; min-height: 0;
+           border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .split > .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .split > .pane + .pane { border-left: 1px solid var(--line); }
+  .pane-head { padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--ink-dim);
+               background: var(--surface); border-bottom: 1px solid var(--line-soft);
+               display: flex; align-items: center; gap: 8px; }
+  .pane-scroll { overflow: auto; flex: 1; min-height: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { position: sticky; top: 0; z-index: 1; background: var(--surface);
+             text-align: left; font-weight: 600; font-size: 10.5px; color: var(--ink-faint);
+             letter-spacing: 0.3px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  tbody td { padding: 7px 10px; border-bottom: 1px solid var(--line-soft);
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 1px; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: rgba(232,160,79,.06); }
+  tbody tr.sel td { background: rgba(232,160,79,.11); }
+  td.mono, .mono { font-family: var(--mono); }
+  td.num { color: var(--ink-faint); font-family: var(--mono); width: 34px; }
+
+  .method { font-family: var(--mono); font-weight: 700; font-size: 11px; }
+  .method.GET { color: var(--m-get); } .method.POST { color: var(--m-post); }
+  .method.PUT { color: var(--m-put); } .method.PATCH { color: var(--m-put); }
+  .method.DELETE { color: var(--m-del); } .method.other { color: var(--m-other); }
+  .status { font-family: var(--mono); font-weight: 700; }
+  .status.s2 { color: var(--s2); } .status.s3 { color: var(--s3); }
+  .status.s4 { color: var(--s4); } .status.s5 { color: var(--s5); }
+  .dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px;
+         vertical-align: middle; }
+
+  /* raw request/response viewer */
+  .raw { font-family: var(--mono); font-size: 11.5px; line-height: 1.6; white-space: pre-wrap;
+         word-break: break-word; padding: 12px 14px; margin: 0; color: var(--ink); }
+  .raw .hl-line1 { color: var(--accent); }
+  .raw .hl-hdr { color: var(--m-get); }
+  .empty { color: var(--ink-faint); font-style: normal; padding: 20px 14px;
+           font-family: var(--ui); font-size: 12.5px; }
+
+  /* two-column tool layout */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field-out { background: var(--ground); border: 1px solid var(--line); border-radius: 8px;
+               padding: 12px 14px; font-family: var(--mono); font-size: 12px;
+               white-space: pre-wrap; word-break: break-word; min-height: 160px; color: var(--ink); }
+  .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); }
+
+  /* findings */
+  .finding { border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px;
+             padding: 12px 14px; margin-bottom: 10px; background: var(--surface); }
+  .finding.high { border-left-color: var(--sev-high); }
+  .finding.medium { border-left-color: var(--sev-med); }
+  .finding.low { border-left-color: var(--sev-low); }
+  .finding.info { border-left-color: var(--sev-info); }
+  .finding .ft { display: flex; align-items: center; gap: 10px; }
+  .finding .sev { font-family: var(--mono); font-size: 10px; font-weight: 700;
+                  padding: 2px 8px; border-radius: 5px; letter-spacing: 0.5px; }
+  .sev.high { background: rgba(232,128,127,.16); color: var(--sev-high); }
+  .sev.medium { background: rgba(224,178,90,.16); color: var(--sev-med); }
+  .sev.low { background: rgba(106,168,232,.16); color: var(--sev-low); }
+  .sev.info { background: rgba(126,138,166,.16); color: var(--sev-info); }
+  .finding .title { font-weight: 600; font-size: 13px; }
+  .finding .check { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+  .finding .detail { color: var(--ink-dim); font-size: 12.5px; margin-top: 5px; }
+  .finding .url { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 5px; }
+
+  /* severity summary chips */
+  .sevbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .sevchip { display: flex; align-items: center; gap: 7px; background: var(--surface);
+             border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
+  .sevchip .n { font-family: var(--mono); font-weight: 700; font-size: 15px; }
+  .sevchip .l { font-size: 11px; color: var(--ink-dim); }
+
+  /* notice block */
+  .notice { border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px;
+            font-size: 12.5px; color: var(--ink-dim); margin-bottom: 14px; background: var(--surface); }
+  .notice.hold { border-color: rgba(232,128,127,.4); }
+  .notice b { color: var(--ink); font-weight: 600; }
+  .notice code { font-family: var(--mono); color: var(--accent); font-size: 11.5px; }
+
+  .diff .ins { color: var(--m-post); background: rgba(125,211,168,.12); border-radius: 3px; }
+  .diff .del { color: var(--m-del); background: rgba(232,128,127,.12);
+               text-decoration: line-through; border-radius: 3px; }
+  .diff { font-family: var(--mono); font-size: 12px; line-height: 1.7; }
+
+  /* steps / setup */
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; max-width: 64ch; }
+  .steps li { counter-increment: s; position: relative; padding: 10px 0 10px 40px;
+              border-bottom: 1px solid var(--line-soft); color: var(--ink-dim); font-size: 13px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 10px;
+              width: 24px; height: 24px; border-radius: 7px; background: var(--surface-2);
+              border: 1px solid var(--line); color: var(--ink); font-family: var(--mono);
+              font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+  .steps li b { color: var(--ink); }
+
+  .kpi { display: inline-flex; gap: 5px; align-items: baseline; }
+  .kpi .v { font-family: var(--mono); font-weight: 700; }
+
+  /* ---------------- status strip ---------------- */
+  .statusbar { grid-area: status; background: var(--surface); border-top: 1px solid var(--line);
+               display: flex; align-items: center; gap: 16px; padding: 0 14px;
+               font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+  .statusbar .live { color: var(--m-post); }
+  .statusbar .seg { display: flex; align-items: center; gap: 6px; }
+  .statusbar .seg .lbl { color: var(--ink-faint); }
+  .statusbar .right { margin-left: auto; color: var(--ink-faint); }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--m-post);
+           box-shadow: 0 0 0 0 rgba(125,211,168,.6); animation: pulse 2.4s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(125,211,168,.5)} 70%{box-shadow:0 0 0 7px rgba(125,211,168,0)} 100%{box-shadow:0 0 0 0 rgba(125,211,168,0)} }
+
+  @media (max-width: 760px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr 26px;
+           grid-template-areas: "rail" "work" "status"; }
+    .rail { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--line); }
+    .brand { display: none; }
+    .nav { display: flex; padding: 6px; }
+    .nav .group { display: none; }
+    .nav button.active::before { display: none; }
+    .split, .cols { grid-template-columns: 1fr; }
+    .split > .pane + .pane { border-left: none; border-top: 1px solid var(--line); }
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; border: 2px solid var(--surface); }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+  <!-- ======================= LEFT RAIL ======================= -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="name">Dast<b>·</b>Day</div>
+      <div class="sub">dynamic app security proxy</div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="group">TRAFFIC</div>
+      <button data-v="history" class="active">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+        Proxy history <span class="tag" id="nav-flows">0</span>
+      </button>
+      <button data-v="repeater">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Repeater
+      </button>
+      <div class="group">ANALYZE</div>
+      <button data-v="decoder">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+        Decoder
+      </button>
+      <button data-v="comparer">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>
+        Comparer
+      </button>
+      <button data-v="sequencer">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg>
+        Sequencer
+      </button>
+      <div class="group">SECURITY</div>
+      <button data-v="findings">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>
+        Findings <span class="tag" id="nav-findings">0</span>
+      </button>
+      <button data-v="active">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="4"/></svg>
+        Active scan
+      </button>
+      <button data-v="scope">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+        Scope
+      </button>
+      <div class="group">SETUP</div>
+      <button data-v="setup">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5L2.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h5l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5c.1-.3.1-.7.1-1z"/></svg>
+        Setup
+      </button>
+    </nav>
+  </aside>
+
+  <!-- ======================= WORK ======================= -->
+  <main class="work">
+    <!-- HISTORY -->
+    <section class="view active" id="view-history">
+      <div class="viewhead">
+        <h1>Proxy history</h1>
+        <p>Every request routed through the proxy, in order. Select a row to inspect the raw exchange.</p>
+      </div>
+      <div class="viewbody" style="display:flex; flex-direction:column;">
+        <div class="toolbar">
+          <input id="h-search" placeholder="search url or body" style="width:240px">
+          <input id="h-host" placeholder="host" style="width:150px">
+          <select id="h-method">
+            <option value="">any method</option>
+            <option>GET</option><option>POST</option><option>PUT</option>
+            <option>DELETE</option><option>PATCH</option>
+          </select>
+          <button class="btn" onclick="loadHistory()">Refresh</button>
+          <button class="btn" onclick="clearHistory()">Clear</button>
+        </div>
+        <div class="split">
+          <div class="pane">
+            <div class="pane-head">Requests</div>
+            <div class="pane-scroll">
+              <table>
+                <thead><tr><th>#</th><th>Method</th><th>Host</th><th>Path</th><th>Status</th><th>Size</th></tr></thead>
+                <tbody id="h-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="pane">
+            <div class="pane-head" id="insp-head">Inspector</div>
+            <div class="pane-scroll" id="insp-body">
+              <div class="empty">Select a request to see its raw bytes.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPEATER -->
+    <section class="view" id="view-repeater">
+      <div class="viewhead">
+        <h1>Repeater</h1>
+        <p>Edit one request and send it again. Use it to probe how a target responds to small changes, on systems you are authorized to test.</p>
+      </div>
+      <div class="viewbody">
+        <div class="toolbar">
+          <select id="r-scheme"><option>https</option><option>http</option></select>
+          <button class="btn primary" onclick="sendRepeater()">Send request</button>
+          <span class="meta" id="r-meta"></span>
+        </div>
+        <div class="cols">
+          <div>
+            <label class="fld">Request</label>
+            <textarea id="r-req" style="min-height:300px">GET / HTTP/1.1
+Host: example.com
+User-Agent: DastDay
+Accept: */*
+
+</textarea>
+          </div>
+          <div>
+            <label class="fld">Response</label>
+            <pre class="field-out" id="r-resp" style="min-height:300px"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DECODER -->
+    <section class="view" id="view-decoder">
+      <div class="viewhead">
+        <h1>Decoder</h1>
+        <p>Transform selected data between the encodings you meet in web traffic.</p>
+      </div>
+      <div class="viewbody">
+        <div class="toolbar">
+          <select id="d-transform">
+            <option value="base64-encode">Base64 encode</option>
+            <option value="base64-decode">Base64 decode</option>
+            <option value="url-encode">URL encode</option>
+            <option value="url-decode">URL decode</option>
+            <option value="hex-encode">Hex encode</option>
+            <option value="hex-decode">Hex decode</option>
+            <option value="html-encode">HTML encode</option>
+            <option value="html-decode">HTML decode</option>
+            <option value="md5">MD5</option><option value="sha1">SHA1</option><option value="sha256">SHA256</option>
+          </select>
+          <button class="btn primary" onclick="runDecode()">Apply</button>
+          <button class="btn" onclick="smartDecode()">Smart decode</button>
+        </div>
+        <div class="cols">
+          <div><label class="fld">Input</label><textarea id="d-in" style="min-height:180px"></textarea></div>
+          <div><label class="fld">Output</label><pre class="field-out" id="d-out" style="min-height:180px"></pre></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPARER -->
+    <section class="view" id="view-comparer">
+      <div class="viewhead">
+        <h1>Comparer</h1>
+        <p>Diff two requests or responses to see exactly what changed between them.</p>
+      </div>
+      <div class="viewbody">
+        <div class="toolbar">
+          <button class="btn primary" onclick="runCompare()">Compare</button>
+          <span class="meta" id="c-stats"></span>
+        </div>
+        <div class="cols">
+          <div><label class="fld">A</label><textarea id="c-a" style="min-height:180px"></textarea></div>
+          <div><label class="fld">B</label><textarea id="c-b" style="min-height:180px"></textarea></div>
+        </div>
+        <label class="fld" style="margin-top:14px">Word diff</label>
+        <div class="field-out diff" id="c-diff" style="min-height:60px"></div>
+      </div>
+    </section>
+
+    <!-- SEQUENCER -->
+    <section class="view" id="view-sequencer">
+      <div class="viewhead">
+        <h1>Sequencer</h1>
+        <p>Measure the randomness of tokens you have already captured (session IDs, reset tokens). Analysis only, nothing is sent.</p>
+      </div>
+      <div class="viewbody">
+        <div class="toolbar"><button class="btn primary" onclick="runSeq()">Analyze</button></div>
+        <label class="fld">Samples, one per line</label>
+        <textarea id="q-in" style="min-height:170px"></textarea>
+        <label class="fld" style="margin-top:14px">Result</label>
+        <pre class="field-out" id="q-out" style="min-height:120px"></pre>
+      </div>
+    </section>
+
+    <!-- FINDINGS -->
+    <section class="view" id="view-findings">
+      <div class="viewhead">
+        <h1>Findings</h1>
+        <p>Passive analysis of traffic that already passed through the proxy. No requests are sent and no payloads are injected.</p>
+      </div>
+      <div class="viewbody">
+        <div class="sevbar" id="sevbar"></div>
+        <div class="toolbar"><button class="btn" onclick="loadFindings()">Refresh</button></div>
+        <div id="f-list"></div>
+      </div>
+    </section>
+
+    <!-- ACTIVE SCAN -->
+    <section class="view" id="view-active">
+      <div class="viewhead">
+        <h1>Active scan</h1>
+        <p>The engine that drives operator-supplied active checks against an authorized scope.</p>
+      </div>
+      <div class="viewbody">
+        <div class="notice hold">
+          <b>No active checks are loaded.</b> This build ships the active-scan engine without any
+          attack payloads. Active scanning sends crafted requests to probe for vulnerabilities, which
+          behaves the same against a system you own and one you do not, so the checks are left to you to
+          supply for targets you are authorized to test.
+        </div>
+        <div class="notice">
+          To enable it: write an <code>ActiveCheck</code>, drop it in <code>extensions/</code>, and
+          assert an authorized scope with <code>authorize_scope({...})</code>. The engine refuses to run
+          on an empty scope. See <code>docs/WRITING_ACTIVE_CHECKS.md</code>.
+        </div>
+        <div class="sevbar">
+          <div class="sevchip"><span class="n" id="as-checks">0</span><span class="l">checks loaded</span></div>
+          <div class="sevchip"><span class="n" id="as-scope">0</span><span class="l">hosts in scope</span></div>
+          <div class="sevchip"><span class="n" style="color:var(--sev-high)">off</span><span class="l">engine state</span></div>
+        </div>
+        <label class="fld">Insertion points discovered on the selected request (inert preview)</label>
+        <pre class="field-out" id="as-points" style="min-height:90px"><span class="empty" style="padding:0">Select a request in Proxy history to list its parameters.</span></pre>
+      </div>
+    </section>
+
+    <!-- SCOPE -->
+    <section class="view" id="view-scope">
+      <div class="viewhead">
+        <h1>Scope</h1>
+        <p>Limit which hosts get deep processing. A tight scope is how you avoid touching anything you should not.</p>
+      </div>
+      <div class="viewbody">
+        <label class="fld">In-scope hosts, one per line</label>
+        <textarea id="s-hosts" style="min-height:140px"></textarea>
+        <div class="toolbar" style="margin-top:12px">
+          <button class="btn primary" onclick="saveScope()">Save scope</button>
+          <span class="meta" id="s-msg"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETUP -->
+    <section class="view" id="view-setup">
+      <div class="viewhead">
+        <h1>Setup</h1>
+        <p>Four steps to route your browser through the proxy. Only on a machine you control.</p>
+      </div>
+      <div class="viewbody">
+        <ol class="steps">
+          <li><b>Download the CA.</b> <button class="btn" onclick="downloadCA()">Download CA certificate</button></li>
+          <li><b>Trust it.</b> Install the certificate in your browser or OS trust store.</li>
+          <li><b>Point your proxy</b> at <code class="mono" id="setup-proxy">127.0.0.1:8080</code>.</li>
+          <li><b>Browse.</b> Traffic appears under Proxy history as it flows.</li>
+        </ol>
+        <div class="notice hold" style="margin-top:16px">
+          Intercept only on systems you own or are authorized to test. The CA affects only browsers
+          that trust it, which means your own.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ======================= STATUS STRIP ======================= -->
+  <footer class="statusbar">
+    <div class="seg"><span class="pulse"></span><span class="live" id="sb-state">listening</span></div>
+    <div class="seg"><span class="lbl">proxy</span><span id="sb-proxy">127.0.0.1:8080</span></div>
+    <div class="seg"><span class="lbl">flows</span><span id="sb-flows">0</span></div>
+    <div class="seg"><span class="lbl">findings</span><span id="sb-findings">0</span></div>
+    <div class="seg"><span class="lbl">ext</span><span id="sb-ext">none</span></div>
+    <div class="right" id="sb-right">DastDay</div>
+  </footer>
+
+<script>
+const $ = s => document.querySelector(s);
+let flows = [], currentFlow = null;
+
+// ---- navigation ----
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#nav button').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  $('#view-' + b.dataset.v).classList.add('active');
+  if (b.dataset.v === 'findings') loadFindings();
+  if (b.dataset.v === 'scope') loadScope();
+  if (b.dataset.v === 'active') loadActive();
+});
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error((await r.json().catch(()=>({detail:r.statusText}))).detail);
+  return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
+}
+
+function methodClass(m){ return ['GET','POST','PUT','PATCH','DELETE'].includes(m) ? m : 'other'; }
+function statusClass(s){ return s ? 's'+String(s)[0] : ''; }
+function fmtSize(n){ if(n==null) return ''; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
+function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// render raw HTTP with the start line + header names lightly colored
+function renderRaw(text){
+  const lines = escapeHtml(text).split(/\r?\n/);
+  let out = [], inBody = false;
+  lines.forEach((ln, i) => {
+    if (ln === '' && !inBody) { inBody = true; out.push(''); return; }
+    if (inBody) { out.push(ln); return; }
+    if (i === 0) { out.push(`<span class="hl-line1">${ln}</span>`); return; }
+    const idx = ln.indexOf(':');
+    if (idx > 0) out.push(`<span class="hl-hdr">${ln.slice(0,idx)}</span>${ln.slice(idx)}`);
+    else out.push(ln);
+  });
+  return out.join('\n');
+}
+
+async function refreshStatus() {
+  try {
+    const s = await api('/api/status');
+    $('#sb-proxy').textContent = s.proxy;
+    $('#sb-flows').textContent = s.flows;
+    $('#sb-findings').textContent = s.findings;
+    $('#sb-ext').textContent = s.extensions.join(', ') || 'none';
+    $('#nav-flows').textContent = s.flows;
+    $('#nav-findings').textContent = s.findings;
+    $('#setup-proxy').textContent = s.proxy;
+    $('#sb-state').textContent = 'listening';
+  } catch(e) { $('#sb-state').textContent = 'offline'; }
+}
+
+// ---- history ----
+async function loadHistory() {
+  const q = new URLSearchParams({ search:$('#h-search').value, host:$('#h-host').value, method:$('#h-method').value });
+  flows = await api('/api/history?' + q);
+  const tb = $('#h-rows'); tb.innerHTML = '';
+  if (!flows.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty">No traffic yet. Point your browser at the proxy and browse.</div></td></tr>'; return; }
+  flows.forEach((f, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="num">${i+1}</td>
+      <td><span class="method ${methodClass(f.method)}">${f.method}</span></td>
+      <td class="mono">${escapeHtml(f.host)}</td>
+      <td class="mono" title="${escapeHtml(f.path)}">${escapeHtml(f.path)}</td>
+      <td><span class="status ${statusClass(f.status)}">${f.status||''}</span></td>
+      <td class="mono">${fmtSize(f.resp_length)}</td>`;
+    tr.onclick = () => { document.querySelectorAll('#h-rows tr').forEach(r=>r.classList.remove('sel')); tr.classList.add('sel'); showFlow(f.id); };
+    tb.appendChild(tr);
+  });
+}
+async function showFlow(id) {
+  const f = await api('/api/flow/' + id);
+  currentFlow = f;
+  $('#insp-head').innerHTML = `Inspector <span class="mono" style="color:var(--ink-faint)">· ${escapeHtml(f.method)} ${escapeHtml(f.host)}</span>`;
+  $('#insp-body').innerHTML =
+    `<div class="pane-head" style="background:transparent;border:0;padding:10px 14px 2px">REQUEST</div>
+     <pre class="raw">${renderRaw(f.req_raw)}</pre>
+     <div class="pane-head" style="background:transparent;border:0;padding:10px 14px 2px">RESPONSE</div>
+     <pre class="raw">${renderRaw(f.resp_raw)}</pre>
+     <div style="padding:10px 14px"><button class="btn" onclick="toRepeater()">Send to Repeater</button></div>`;
+}
+async function clearHistory() {
+  if (!confirm('Clear all captured history?')) return;
+  await api('/api/history', {method:'DELETE'}); loadHistory(); refreshStatus();
+}
+function toRepeater() {
+  if (!currentFlow) return;
+  $('#r-req').value = currentFlow.req_raw;
+  document.querySelector('#nav button[data-v="repeater"]').click();
+}
+
+// ---- repeater ----
+async function sendRepeater() {
+  $('#r-meta').textContent = 'sending…';
+  try {
+    const res = await api('/api/repeater/send', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({raw:$('#r-req').value, scheme:$('#r-scheme').value})});
+    $('#r-resp').innerHTML = renderRaw(res.response_raw);
+    $('#r-meta').innerHTML = `<span class="status ${statusClass(res.status)}">${res.status}</span> · ${res.duration_ms?.toFixed(0)} ms`;
+  } catch(e) { $('#r-meta').textContent = 'error: ' + e.message; }
+}
+
+// ---- decoder ----
+async function runDecode() {
+  try {
+    const res = await api('/api/decoder', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({transform:$('#d-transform').value, value:$('#d-in').value})});
+    $('#d-out').textContent = res.result;
+  } catch(e) { $('#d-out').textContent = 'error: ' + e.message; }
+}
+async function smartDecode() {
+  const res = await api('/api/decoder/smart', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({transform:'', value:$('#d-in').value})});
+  $('#d-out').textContent = Object.entries(res.results).map(([k,v]) => `${k}:\n  ${v}`).join('\n\n') || 'no decodings matched';
+}
+
+// ---- comparer ----
+async function runCompare() {
+  const res = await api('/api/comparer', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({a:$('#c-a').value, b:$('#c-b').value})});
+  $('#c-stats').innerHTML = `similarity <b class="mono">${res.stats.ratio}</b> · ${res.stats.identical?'identical':'differs'}`;
+  $('#c-diff').innerHTML = res.word_diff.map(s =>
+    s.op==='equal' ? escapeHtml(s.text+' ') :
+    s.op==='insert' ? `<span class="ins">${escapeHtml(s.text)} </span>` :
+    `<span class="del">${escapeHtml(s.text)} </span>`).join('');
+}
+
+// ---- sequencer ----
+async function runSeq() {
+  const samples = $('#q-in').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const res = await api('/api/sequencer', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({samples})});
+  $('#q-out').textContent = JSON.stringify(res, null, 2);
+}
+
+// ---- findings ----
+async function loadFindings() {
+  const fs = await api('/api/findings');
+  const counts = {high:0, medium:0, low:0, info:0};
+  fs.forEach(f => counts[f.severity] = (counts[f.severity]||0)+1);
+  $('#sevbar').innerHTML = ['high','medium','low','info'].map(s =>
+    `<div class="sevchip"><span class="n" style="color:var(--sev-${s})">${counts[s]||0}</span><span class="l">${s}</span></div>`).join('');
+  $('#f-list').innerHTML = fs.length ? fs.map(f => `
+    <div class="finding ${f.severity}">
+      <div class="ft"><span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>
+        <span class="title">${escapeHtml(f.title)}</span>
+        <span class="check">${escapeHtml(f.check)}</span></div>
+      <div class="detail">${escapeHtml(f.detail)}</div>
+      <div class="url">${escapeHtml(f.url)}</div>
+    </div>`).join('') : '<div class="empty">No findings yet. Browse through the proxy to populate this list.</div>';
+}
+
+// ---- active scan ----
+async function loadActive() {
+  try {
+    const s = await api('/api/status');
+    $('#as-scope').textContent = s.scope.length;
+  } catch(e){}
+  $('#as-checks').textContent = '0';
+  if (currentFlow && currentFlow.req_raw) {
+    // show inert insertion points parsed from the selected request's URL/query
+    const line = currentFlow.req_raw.split(/\r?\n/)[0] || '';
+    const q = (line.split(' ')[1] || '').split('?')[1] || '';
+    const pts = q ? q.split('&').map(p => 'query  ' + p.split('=')[0]) : [];
+    $('#as-points').textContent = pts.length ? pts.join('\n') : 'No query parameters on the selected request.';
+  }
+}
+
+// ---- scope ----
+async function loadScope() { const s = await api('/api/scope'); $('#s-hosts').value = s.hosts.join('\n'); }
+async function saveScope() {
+  const hosts = $('#s-hosts').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  await api('/api/scope', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({hosts})});
+  $('#s-msg').textContent = 'saved'; setTimeout(()=>$('#s-msg').textContent='', 1500);
+}
+
+// ---- setup ----
+async function downloadCA() {
+  const pem = await api('/api/ca-cert');
+  const blob = new Blob([pem], {type:'application/x-pem-file'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dastday-ca.pem'; a.click();
+}
+
+refreshStatus(); loadHistory(); setInterval(refreshStatus, 4000);
+</script>
+</body>
+</html>

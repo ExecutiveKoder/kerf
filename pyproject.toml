@@ -1,0 +1,23 @@
+[project]
+name = "dastday"
+version = "0.1.0"
+description = "Open-source clean-room web security proxy and manual-testing toolkit"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "cryptography>=42.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+dastday = "main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

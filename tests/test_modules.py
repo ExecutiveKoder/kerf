@@ -141,7 +141,60 @@ def test_insertion_point_discovery_is_inert():
     assert names == {"q", "p"}
 
 
+def test_json_insertion_points():
+    req = HttpRequest("POST", "https://t.test/api",
+                      [("Host", "t.test"), ("Content-Type", "application/json")],
+                      b'{"user":{"name":"ada"}}')
+    pts = discover_insertion_points(req)
+    kinds = {p.kind for p in pts}
+    assert "json" in kinds
+    assert any(p.name == "user.name" for p in pts)
+
+
 # --------------------------------------------------------------- repeater
+
+def test_match_replace_header():
+    import asyncio
+    from modules.rules import RuleEngine
+    eng = RuleEngine()
+    eng._data = {"rules": [{
+        "id": "1", "enabled": True, "location": "request-header",
+        "match": "old", "replace": "new", "regex": False,
+        "header": "X-Test", "hosts": [], "comment": "",
+    }], "filters": {"methods": [], "path_regex": "", "url_contains": "",
+                    "mime_contains": "", "in_scope_only": True}}
+    req = HttpRequest("GET", "https://t.test/", [("Host", "t.test"), ("X-Test", "old")])
+    flow = Flow(request=req)
+    out = asyncio.run(eng.on_request(flow))
+    assert out is not None and out.header("X-Test") == "new"
+
+
+def test_packet_display_filter():
+    from modules.packets import match_filter, as_packet, export_pcap, hex_rows
+    pkt = as_packet({
+        "id": "1", "timestamp": 1, "method": "POST", "host": "a.test",
+        "path": "/login", "url": "https://a.test/login", "status": 403,
+        "mime": "application/json", "req_length": 20, "resp_length": 8,
+        "protocol": "http/1.1", "req_raw": "POST /login\n\nsecret",
+        "resp_raw": "HTTP/1.1 403\n\nno",
+    }, no=1, t0=1)
+    pkt["req_raw"] = "POST /login\n\nsecret"
+    assert match_filter("http.method == POST && http.status >= 400", pkt)
+    assert not match_filter("http.method == GET", pkt)
+    assert match_filter("tcp contains secret", pkt)
+    blob = export_pcap([{
+        "timestamp": 1, "host": "a.test", "url": "https://a.test/",
+        "req_raw": "GET / HTTP/1.1\nHost: a.test\n\n", "resp_raw": "HTTP/1.1 200 OK\n\nok",
+    }])
+    assert blob[:4] == b"\xd4\xc3\xb2\xa1"
+    assert hex_rows(b"ABC")[0]["ascii"] == "ABC"
+
+
+def test_copy_as_curl():
+    from modules.exportfmt import copy_as_curl
+    raw = "GET /x HTTP/1.1\nHost: t.test\n\n"
+    assert "curl" in copy_as_curl(raw) and "t.test" in copy_as_curl(raw)
+
 
 def test_repeater_parse_raw():
     raw = "POST /login HTTP/1.1\nHost: t.test\nContent-Type: text/plain\n\nbody"

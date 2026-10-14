@@ -44,8 +44,9 @@ class HeldItem:
 
 
 class InterceptQueue(BaseAddon):
-    def __init__(self, interceptor) -> None:
+    def __init__(self, interceptor, rules=None) -> None:
         self._scope = interceptor
+        self.rules = rules
         self.enabled = False
         self.hold_requests = True
         self.hold_responses = False
@@ -57,6 +58,7 @@ class InterceptQueue(BaseAddon):
             "hold_requests": self.hold_requests,
             "hold_responses": self.hold_responses,
             "held": [h.public() for h in self._held.values()],
+            "filters": (self.rules.public()["filters"] if self.rules else {}),
         }
 
     def configure(self, *, enabled=None, hold_requests=None, hold_responses=None):
@@ -77,7 +79,11 @@ class InterceptQueue(BaseAddon):
             return False
         if kind == "response" and not self.hold_responses:
             return False
-        return self._scope.in_scope(host.split(":")[0])
+        in_scope = self._scope.in_scope(host.split(":")[0])
+        if not self.rules:
+            return in_scope
+        # request is checked by the caller via _should_req
+        return in_scope
 
     async def _park(self, item: HeldItem):
         self._held[item.id] = item
@@ -88,8 +94,19 @@ class InterceptQueue(BaseAddon):
         finally:
             self._held.pop(item.id, None)
 
+    def _allow(self, flow: Flow, kind: str) -> bool:
+        if not self._should(flow.request.host, kind):
+            return False
+        if not self.rules:
+            return True
+        mime = flow.response.content_type if flow.response else ""
+        return self.rules.filters_allow(
+            flow.request,
+            in_scope=self._scope.in_scope(flow.request.host.split(":")[0]),
+            mime=mime)
+
     async def on_request(self, flow: Flow):
-        if not self._should(flow.request.host, "request"):
+        if not self._allow(flow, "request"):
             return None
         scheme = urlsplit(flow.request.url).scheme or "https"
         raw = flow.request.raw().decode("latin-1")
@@ -102,7 +119,7 @@ class InterceptQueue(BaseAddon):
         return None
 
     async def on_response(self, flow: Flow):
-        if not flow.response or not self._should(flow.request.host, "response"):
+        if not flow.response or not self._allow(flow, "response"):
             return None
         scheme = urlsplit(flow.request.url).scheme or "https"
         raw = flow.response.raw().decode("latin-1")

@@ -39,6 +39,8 @@ def default_settings() -> dict:
         "port": 9050,
         "username": "",
         "password": "",
+        "client_cert": "",
+        "client_key": "",
     }
 
 
@@ -69,6 +71,7 @@ class UpstreamRoute:
         s["presets"] = [{"id": k, **{kk: vv for kk, vv in v.items()}}
                         for k, v in PRESETS.items()]
         s["active"] = bool(s.get("enabled") and s.get("kind") != "direct")
+        s["client_cert_set"] = bool(s.get("client_cert"))
         return s
 
     def configure(self, patch: dict) -> dict:
@@ -114,6 +117,13 @@ class UpstreamRoute:
         pw = s.get("password") or ""
         auth = f"{user}:{pw}@" if user else ""
         return f"{kind}://{auth}{host}:{port}"
+
+    def client_cert_paths(self) -> tuple[str, str] | None:
+        cert = (self._settings.get("client_cert") or "").strip()
+        key = (self._settings.get("client_key") or "").strip()
+        if cert and key:
+            return cert, key
+        return None
 
     async def open(self, dest_host: str, dest_port: int, *,
                    ssl_ctx: ssl.SSLContext | None = None):

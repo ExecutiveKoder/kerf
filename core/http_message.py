@@ -105,6 +105,9 @@ class Flow:
     duration_ms: float | None = None
     # Populated by passive scanner and tags.
     notes: list[str] = field(default_factory=list)
+    protocol: str = "http/1.1"
+    tls: dict | None = None
+    color: str = ""
 
     def summary(self) -> dict:
         return {

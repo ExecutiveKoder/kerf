@@ -230,6 +230,25 @@
                background: var(--surface-2); border-bottom: 1px solid var(--line-soft);
                display: flex; align-items: center; gap: 8px; letter-spacing:.3px; }
   .pane-scroll { overflow: auto; flex: 1; min-height: 0; }
+  .shark { flex:1; min-height:0; display:grid; grid-template-rows: 1fr 1fr; gap:0;
+           border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow); }
+  .shark-bot { display:grid; grid-template-columns: 1fr 1fr; min-height:0; border-top:1px solid var(--line); }
+  .shark-bot > .pane { min-width:0; min-height:0; display:flex; flex-direction:column; }
+  .shark-bot > .pane + .pane { border-left:1px solid var(--line); }
+  #pk-rows tr.tls td { background: rgba(111,207,151,.12); }
+  #pk-rows tr.h2 td { background: rgba(183,154,224,.12); }
+  #pk-rows tr.ws td { background: rgba(106,168,232,.12); }
+  #pk-rows tr.s4 td { background: rgba(224,178,90,.14); }
+  #pk-rows tr.s5 td { background: rgba(232,128,127,.14); }
+  .tree { font-family:var(--mono); font-size:12px; padding:8px 10px; }
+  .tree details { margin-left:8px; }
+  .tree summary { cursor:pointer; color:var(--ink); }
+  .tree .tv { color:var(--ink-dim); }
+  .hex { font-family:var(--mono); font-size:11.5px; white-space:pre; padding:8px 12px; line-height:1.55; }
+  .hex .off { color:var(--ink-faint); margin-right:12px; }
+  .hex .asc { color:var(--ink-dim); margin-left:14px; }
+  .filter-ok { border-color: var(--ok) !important; }
+  .filter-bad { border-color: var(--bad) !important; }
 
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-2);
@@ -398,6 +417,18 @@
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
         Repeater
       </button>
+      <button data-v="packets">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+        Packets
+      </button>
+      <button data-v="logger">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        Logger <span class="tag" id="nav-events">0</span>
+      </button>
+      <button data-v="rules">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="12" r="2"/></svg>
+        Rules
+      </button>
       <div class="group">Analyze</div>
       <button data-v="decoder">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
@@ -410,6 +441,14 @@
       <button data-v="sequencer">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg>
         Sequencer
+      </button>
+      <button data-v="analyzer">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Analyzer
+      </button>
+      <button data-v="components">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+        Components
       </button>
       <div class="group">Scan &amp; attack</div>
       <button data-v="findings">
@@ -424,7 +463,15 @@
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22v-4M4 12H2M22 12h-6M6 6l-2-2M20 20l-4-4"/><circle cx="12" cy="12" r="3"/></svg>
         Intruder
       </button>
+      <button data-v="oast">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="2"/></svg>
+        OAST
+      </button>
       <div class="group">Session</div>
+      <button data-v="session">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Cookies
+      </button>
       <button data-v="projects">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         Projects
@@ -492,11 +539,16 @@
           </select>
           <label class="chk"><input type="checkbox" id="h-noise" checked> hide noise</label>
           <button class="btn" onclick="loadHistory()">Refresh</button>
+          <button class="btn" onclick="exportHar()">Export HAR</button>
+          <button class="btn" onclick="$('#h-har').click()">Import HAR</button>
+          <input id="h-har" type="file" accept=".har,.json" hidden onchange="importHar(event)">
           <button class="btn danger" onclick="clearHistory()">Clear</button>
         </div>
         <div class="hist">
           <div class="sitemap">
-            <div class="pane-head">Sitemap</div>
+            <div class="pane-head">Sitemap
+              <button class="btn sm" style="margin-left:auto" onclick="crawlFromSitemap()">Crawl</button>
+            </div>
             <div class="pane-scroll" id="sm-tree"></div>
           </div>
           <div class="split">
@@ -520,6 +572,46 @@
       </div>
     </section>
 
+    <!-- PACKETS -->
+    <section class="view" id="view-packets">
+      <div class="viewhead"><div class="ht">
+        <h1>Packets</h1>
+        <p>Wireshark-style view of reconstructed proxy traffic — list, protocol tree, hex. Display filters and pcap export. This is not a NIC sniff; it is what SureGuard already decrypted.</p>
+      </div></div>
+      <div class="viewbody" style="display:flex; flex-direction:column;">
+        <div class="toolbar">
+          <input id="pk-filter" placeholder='display filter  e.g. http.method == POST &amp;&amp; http.status &gt;= 400' style="flex:1; min-width:240px" onkeydown="if(event.key==='Enter')loadPackets()">
+          <button class="btn primary" onclick="loadPackets()">Apply</button>
+          <button class="btn" onclick="$('#pk-filter').value=''; loadPackets()">Clear</button>
+          <button class="btn" onclick="followStream()">Follow stream</button>
+          <button class="btn" onclick="showConversations()">Conversations</button>
+          <button class="btn" onclick="exportPcap()">Export pcap</button>
+          <span class="meta" id="pk-meta"></span>
+        </div>
+        <div class="shark">
+          <div class="pane">
+            <div class="pane-head">Packet list</div>
+            <div class="pane-scroll">
+              <table>
+                <thead><tr><th>No</th><th>Time</th><th>Source</th><th>Destination</th><th>Proto</th><th>Len</th><th>Info</th></tr></thead>
+                <tbody id="pk-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="shark-bot">
+            <div class="pane">
+              <div class="pane-head" id="pk-tree-h">Packet details</div>
+              <div class="pane-scroll tree" id="pk-tree"><div class="empty">Select a packet.</div></div>
+            </div>
+            <div class="pane">
+              <div class="pane-head">Packet bytes</div>
+              <div class="pane-scroll hex" id="pk-hex"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- INTERCEPT -->
     <section class="view" id="view-intercept">
       <div class="viewhead"><div class="ht">
@@ -536,6 +628,9 @@
           <input type="checkbox" id="ix-on" hidden>
           <label class="chk" title="Pause requests"><span class="switch"><input type="checkbox" id="ix-req" checked onchange="saveIntercept()"><i></i></span> hold requests</label>
           <label class="chk" title="Pause responses"><span class="switch"><input type="checkbox" id="ix-resp" onchange="saveIntercept()"><i></i></span> hold responses</label>
+          <input id="ix-methods" placeholder="methods e.g. POST,PUT" style="width:150px" onchange="saveFilters()">
+          <input id="ix-path" placeholder="path regex" style="width:130px" onchange="saveFilters()">
+          <input id="ix-url" placeholder="url contains" style="width:130px" onchange="saveFilters()">
           <button class="btn" onclick="forwardAllHeld()">Forward all</button>
           <button class="btn danger" onclick="dropAllHeld()">Drop all</button>
           <span class="meta" id="ix-meta"></span>
@@ -568,9 +663,14 @@
         <p>Edit one request and send it again. Probe how a target responds to small changes, on systems you are authorized to test.</p>
       </div></div>
       <div class="viewbody">
+        <div class="page-tabs" id="r-tabs"></div>
         <div class="toolbar">
+          <button class="btn sm" onclick="addRepeaterTab()">New tab</button>
           <select id="r-scheme"><option>https</option><option>http</option></select>
           <button class="btn primary" onclick="sendRepeater()">Send request</button>
+          <button class="btn" onclick="copyAs('curl')">Copy as curl</button>
+          <button class="btn" onclick="copyAs('fetch')">Copy as fetch</button>
+          <button class="btn" onclick="copyAs('python')">Copy as Python</button>
           <span class="meta" id="r-meta"></span>
         </div>
         <div class="cols">
@@ -768,6 +868,8 @@ Accept-Language: en-US,en;q=0.9
               </div>
               <label class="fld" style="margin-top:12px">Grep — match terms, comma separated</label>
               <input id="i-grep" style="width:100%" placeholder="error, admin, root:">
+              <label class="fld" style="margin-top:12px">Extract — regex (group 1 kept)</label>
+              <input id="i-extract" style="width:100%" placeholder="csrf&quot;:&quot;([^&quot;]+)&quot;">
               <div class="toolbar" style="margin-top:14px">
                 <button class="btn primary" onclick="startIntruder()">Start attack</button>
                 <button class="btn danger" onclick="stopIntruder()">Stop</button>
@@ -785,7 +887,7 @@ Accept-Language: en-US,en;q=0.9
           </div>
           <div class="pane-scroll" style="max-height:360px; border:1px solid var(--line); border-radius:10px">
             <table>
-              <thead><tr><th>#</th><th>Payload</th><th>Status</th><th>Length</th><th>Time</th><th>Reflected</th><th>Matches</th></tr></thead>
+              <thead><tr><th>#</th><th>Payload</th><th>Status</th><th>Length</th><th>Time</th><th>Reflected</th><th>Matches</th><th>Extract</th></tr></thead>
               <tbody id="i-rows"></tbody>
             </table>
           </div>
@@ -836,6 +938,165 @@ Accept-Language: en-US,en;q=0.9
       </div>
     </section>
 
+    <!-- LOGGER -->
+    <section class="view" id="view-logger">
+      <div class="viewhead"><div class="ht">
+        <h1>Logger</h1>
+        <p>CONNECT, drops, TLS, WebSocket frames, crawler, and OAST hits. History only stores completed HTTP flows.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="toolbar">
+          <select id="lg-kind" onchange="loadEvents()">
+            <option value="">all kinds</option>
+            <option>connect</option><option>drop</option><option>tls</option>
+            <option>websocket</option><option>oast</option><option>crawler</option><option>error</option>
+          </select>
+          <button class="btn" onclick="loadEvents()">Refresh</button>
+          <button class="btn danger" onclick="clearEvents()">Clear</button>
+          <span class="meta" id="lg-meta"></span>
+        </div>
+        <div class="pane-scroll" style="max-height:360px;border:1px solid var(--line);border-radius:10px">
+          <table>
+            <thead><tr><th>#</th><th>Kind</th><th>Time</th><th>Message</th></tr></thead>
+            <tbody id="lg-rows"></tbody>
+          </table>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <h3>WebSockets</h3>
+          <div id="ws-list" class="meta">No upgrades yet.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RULES -->
+    <section class="view" id="view-rules">
+      <div class="viewhead"><div class="ht">
+        <h1>Match and replace</h1>
+        <p>Rewrite headers, URLs, or bodies on every in-scope request or response. Intercept filters live here too.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="card">
+          <h3>New rule</h3>
+          <div class="grid2">
+            <div>
+              <label class="fld">Location</label>
+              <select id="rl-loc" style="width:100%">
+                <option value="request-header">Request header</option>
+                <option value="request-body">Request body</option>
+                <option value="request-url">Request URL</option>
+                <option value="response-header">Response header</option>
+                <option value="response-body">Response body</option>
+              </select>
+            </div>
+            <div>
+              <label class="fld">Header name (optional)</label>
+              <input id="rl-header" style="width:100%" placeholder="User-Agent">
+            </div>
+          </div>
+          <label class="fld" style="margin-top:10px">Match</label>
+          <input id="rl-match" style="width:100%">
+          <label class="fld" style="margin-top:10px">Replace</label>
+          <input id="rl-replace" style="width:100%">
+          <div class="toolbar" style="margin-top:12px">
+            <label class="chk"><input type="checkbox" id="rl-regex"> regex</label>
+            <button class="btn primary" onclick="addRule()">Add rule</button>
+            <span class="meta" id="rl-msg"></span>
+          </div>
+        </div>
+        <div id="rl-list"></div>
+      </div>
+    </section>
+
+    <!-- SESSION -->
+    <section class="view" id="view-session">
+      <div class="viewhead"><div class="ht">
+        <h1>Cookies &amp; session</h1>
+        <p>Cookie jar plus optional 401 login replay. Injected onto in-scope requests after match/replace.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="card">
+          <h3>Handling</h3>
+          <label class="chk"><input type="checkbox" id="se-inject" checked onchange="saveSession()"> inject cookies</label>
+          <label class="chk"><input type="checkbox" id="se-update" checked onchange="saveSession()"> update from Set-Cookie</label>
+          <label class="chk"><input type="checkbox" id="se-401" onchange="saveSession()"> replay login on 401</label>
+          <label class="fld" style="margin-top:12px">Login request (raw) for 401 replay</label>
+          <textarea id="se-login" style="min-height:120px" placeholder="POST /login HTTP/1.1&#10;Host: …"></textarea>
+          <div class="toolbar" style="margin-top:10px">
+            <select id="se-scheme"><option>https</option><option>http</option></select>
+            <button class="btn primary" onclick="saveSession()">Save</button>
+            <button class="btn danger" onclick="clearSession()">Clear jar</button>
+            <span class="meta" id="se-msg"></span>
+          </div>
+        </div>
+        <div id="se-cookies"></div>
+      </div>
+    </section>
+
+    <!-- ANALYZER -->
+    <section class="view" id="view-analyzer">
+      <div class="viewhead"><div class="ht">
+        <h1>Target analyzer</h1>
+        <p>Parameters, comments, hidden fields, and script URLs from captured history. Nothing new is sent.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="toolbar">
+          <input id="an-host" placeholder="host filter" style="width:180px">
+          <button class="btn primary" onclick="loadAnalyzer()">Analyze</button>
+          <button class="btn" onclick="document.getElementById('oa-file').click()">Import OpenAPI</button>
+          <input id="oa-file" type="file" accept=".json,.yaml,.yml" hidden onchange="importOpenApi(event)">
+          <span class="meta" id="an-msg"></span>
+        </div>
+        <div id="an-out"></div>
+      </div>
+    </section>
+
+    <!-- COMPONENTS -->
+    <section class="view" id="view-components">
+      <div class="viewhead"><div class="ht">
+        <h1>Components</h1>
+        <p>Scan a lockfile against the public OSV database and export a CycloneDX SBOM. Dependency risk, not a hosted repository.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="card">
+          <h3>Scan a lockfile</h3>
+          <label class="fld">Path on this machine</label>
+          <input id="sc-path" style="width:100%" placeholder="/path/to/requirements.txt or package-lock.json">
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn" onclick="$('#sc-file').click()">Or paste a file</button>
+            <input id="sc-file" type="file" hidden onchange="scaFromFile(event)">
+            <button class="btn primary" onclick="runSca()">Scan with OSV</button>
+            <button class="btn" onclick="downloadSbom()">Download SBOM</button>
+            <span class="meta" id="sc-msg"></span>
+          </div>
+        </div>
+        <div class="sevbar" id="sc-sev"></div>
+        <div id="sc-list"></div>
+      </div>
+    </section>
+
+    <!-- OAST -->
+    <section class="view" id="view-oast">
+      <div class="viewhead"><div class="ht">
+        <h1>Out-of-band listener</h1>
+        <p>Local callback log. Use it when an authorized target can reach this machine or a tunnel you run. Not a public collaborator network.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="card">
+          <div class="toolbar">
+            <input id="oa-host" value="127.0.0.1" style="width:140px">
+            <input id="oa-port" value="0" style="width:80px" placeholder="port">
+            <button class="btn primary" onclick="startOast()">Start</button>
+            <button class="btn danger" onclick="stopOast()">Stop</button>
+            <button class="btn" onclick="loadOast()">Refresh</button>
+            <span class="meta" id="oa-msg"></span>
+          </div>
+          <label class="fld">Callback URL</label>
+          <pre class="field-out" id="oa-url" style="min-height:40px"></pre>
+        </div>
+        <div id="oa-hits"></div>
+      </div>
+    </section>
+
     <!-- SCOPE -->
     <section class="view" id="view-scope">
       <div class="viewhead"><div class="ht">
@@ -863,6 +1124,7 @@ Accept-Language: en-US,en;q=0.9
           <button class="on" data-tab="certs" onclick="setupTab('certs')">Certificates</button>
           <button data-tab="ai" onclick="setupTab('ai')">AI models</button>
           <button data-tab="outbound" onclick="setupTab('outbound')">Outbound / Tor</button>
+          <button data-tab="tls" onclick="setupTab('tls')">Client TLS</button>
         </div>
 
         <div class="setup-pane on" id="setup-certs">
@@ -955,6 +1217,21 @@ Accept-Language: en-US,en;q=0.9
             </div>
           </div>
         </div>
+
+        <div class="setup-pane" id="setup-tls">
+          <div class="card">
+            <h3>Client certificate (mTLS)</h3>
+            <div class="sub">Attach a client cert when the authorized target requires mutual TLS. Paths are on this machine only.</div>
+            <label class="fld">Certificate PEM path</label>
+            <input id="up-cert" style="width:100%" placeholder="/path/to/client.crt">
+            <label class="fld" style="margin-top:12px">Private key PEM path</label>
+            <input id="up-key" style="width:100%" placeholder="/path/to/client.key">
+            <div class="toolbar" style="margin-top:14px">
+              <button class="btn primary" onclick="saveUpstream()">Save</button>
+              <span class="meta" id="tls-msg"></span>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
     </div><!-- work-main -->
@@ -1016,6 +1293,14 @@ function gotoScreen(v) {
   if (v === 'projects') loadProjects();
   if (v === 'reports') loadReportSummary();
   if (v === 'setup') { loadAssistantSettings(); loadUpstream(); }
+  if (v === 'logger') loadEvents();
+  if (v === 'rules') loadRules();
+  if (v === 'session') loadSession();
+  if (v === 'analyzer') loadAnalyzer();
+  if (v === 'components') {}
+  if (v === 'oast') loadOast();
+  if (v === 'repeater') renderRepeaterTabs();
+  if (v === 'packets') loadPackets();
 }
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => gotoScreen(b.dataset.v));
 
@@ -1087,6 +1372,7 @@ async function refreshStatus() {
     const ix = $('#sb-ix'); if (ix) ix.textContent = s.intercept_on ? (held ? ('hold ' + held) : 'on') : 'off';
     updateAssistantChip(s.assistant);
     if (s.intercept_on && document.querySelector('#view-intercept.active')) loadIntercept();
+    const ne = $('#nav-events'); if (ne) { ne.textContent = s.events || 0; ne.classList.toggle('hot', (s.ws||0) > 0); }
   } catch(e) { $('#sb-state').textContent = 'offline'; }
 }
 
@@ -1150,6 +1436,10 @@ async function showFlow(id) {
        <button class="btn sm" onclick="toRepeater()">Send to Repeater</button>
        <button class="btn sm" onclick="toActive()">Send to Active scan</button>
        <button class="btn sm" onclick="toIntruder()">Send to Intruder</button>
+       <button class="btn sm" onclick="copyAs('curl')">curl</button>
+       <button class="btn sm" onclick="copyAs('fetch')">fetch</button>
+       <button class="btn sm" onclick="copyAs('python')">Python</button>
+       <button class="btn sm" onclick="toPackets()">Open in Packets</button>
      </div>`;
 }
 async function clearHistory() {
@@ -1158,7 +1448,7 @@ async function clearHistory() {
 }
 function toRepeater() {
   if (!currentFlow) return;
-  $('#r-req').value = currentFlow.req_raw;
+  addRepeaterTab(currentFlow.req_raw);
   document.querySelector('#nav button[data-v="repeater"]').click();
 }
 function toActive(){ if(!currentFlow) return; document.querySelector('#nav button[data-v="active"]').click(); }
@@ -1243,6 +1533,13 @@ async function loadIntercept() {
     $('#ix-on').checked = s.enabled;
     $('#ix-req').checked = s.hold_requests;
     $('#ix-resp').checked = s.hold_responses;
+    const flt = s.filters || {};
+    if ($('#ix-methods') && !$('#ix-methods').matches(':focus'))
+      $('#ix-methods').value = (flt.methods||[]).join(',');
+    if ($('#ix-path') && !$('#ix-path').matches(':focus'))
+      $('#ix-path').value = flt.path_regex || '';
+    if ($('#ix-url') && !$('#ix-url').matches(':focus'))
+      $('#ix-url').value = flt.url_contains || '';
     const banner = $('#ix-banner');
     banner.className = 'banner ' + (s.enabled ? 'armed' : 'locked');
     banner.querySelector('.state').textContent = s.enabled ? 'ON' : 'OFF';
@@ -1477,6 +1774,7 @@ async function startIntruder() {
     const st = await api('/api/intruder/start', {method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({template:$('#i-template').value, scheme:$('#i-scheme').value,
         attack_type:$('#i-attack').value, set_names:selectedSets(), custom:null, grep,
+        extract: ($('#i-extract') && $('#i-extract').value) || '',
         concurrency: parseInt($('#i-conc').value)||20, throttle_ms: parseInt($('#i-throttle').value)||0})});
     currentAttack = st.id;
     $('#i-runcard').style.display = '';
@@ -1506,7 +1804,8 @@ function renderIntruderRows(rows){
     <td class="mono">${r.length}</td>
     <td class="mono">${r.time_ms}</td>
     <td class="mono">${r.reflected?'<span style="color:var(--warn)">yes</span>':''}</td>
-    <td class="mono" style="color:var(--accent-2)">${r.matches.map(escapeHtml).join(', ')}</td>
+    <td class="mono" style="color:var(--accent-2)">${(r.matches||[]).map(escapeHtml).join(', ')}</td>
+    <td class="mono">${escapeHtml(r.extracted||'')}</td>
   </tr>`).join('');
 }
 async function stopIntruder(){ if(currentAttack) await api('/api/intruder/stop/'+currentAttack, {method:'POST'}); }
@@ -1609,7 +1908,7 @@ function setupTab(id) {
   document.querySelectorAll('#setup-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
   document.querySelectorAll('.setup-pane').forEach(p => p.classList.toggle('on', p.id === 'setup-' + id));
   if (id === 'ai') loadAssistantSettings();
-  if (id === 'outbound') loadUpstream();
+  if (id === 'outbound' || id === 'tls') loadUpstream();
 }
 function onUpstreamPreset() {
   const p = $('#up-preset').value;
@@ -1633,6 +1932,8 @@ function fillUpstream(s) {
   if (!($('#up-pass').value && $('#up-pass').value.includes('•')))
     $('#up-pass').value = s.password || '';
   $('#up-on').checked = !!s.enabled;
+  if ($('#up-cert')) $('#up-cert').value = s.client_cert || '';
+  if ($('#up-key')) $('#up-key').value = s.client_key || '';
   const banner = $('#up-banner');
   const active = !!s.active;
   banner.className = 'banner ' + (active ? 'armed' : 'locked');
@@ -1657,6 +1958,8 @@ async function saveUpstream() {
         port: parseInt($('#up-port').value, 10) || 0,
         username: $('#up-user').value.trim(),
         password: $('#up-pass').value,
+        client_cert: ($('#up-cert') && $('#up-cert').value.trim()) || '',
+        client_key: ($('#up-key') && $('#up-key').value.trim()) || '',
       })});
     fillUpstream(s);
     $('#up-msg').textContent = 'saved';
@@ -1832,6 +2135,291 @@ async function sendAssistant() {
   }
   $('#ai-busy').textContent = '';
 }
+
+let repeaterTabs = JSON.parse(localStorage.getItem('sg-repeater') || 'null') || [{id:1,name:'Tab 1',raw:$('#r-req').value,scheme:'https'}];
+let repeaterOn = 0;
+function persistRepeater(){ localStorage.setItem('sg-repeater', JSON.stringify(repeaterTabs)); }
+function renderRepeaterTabs(){
+  const el = $('#r-tabs'); if (!el) return;
+  el.innerHTML = repeaterTabs.map((t,i) =>
+    `<button class="${i===repeaterOn?'on':''}" onclick="switchRepeater(${i})">${escapeHtml(t.name)}</button>`).join('');
+}
+function switchRepeater(i){
+  if (repeaterTabs[repeaterOn]) {
+    repeaterTabs[repeaterOn].raw = $('#r-req').value;
+    repeaterTabs[repeaterOn].scheme = $('#r-scheme').value;
+  }
+  repeaterOn = i;
+  $('#r-req').value = repeaterTabs[i].raw || '';
+  $('#r-scheme').value = repeaterTabs[i].scheme || 'https';
+  persistRepeater(); renderRepeaterTabs();
+}
+function addRepeaterTab(raw){
+  if (repeaterTabs[repeaterOn]) {
+    repeaterTabs[repeaterOn].raw = $('#r-req').value;
+    repeaterTabs[repeaterOn].scheme = $('#r-scheme').value;
+  }
+  repeaterTabs.push({id:Date.now(), name:'Tab '+(repeaterTabs.length+1), raw: raw || $('#r-req').value, scheme:$('#r-scheme').value});
+  repeaterOn = repeaterTabs.length-1;
+  $('#r-req').value = repeaterTabs[repeaterOn].raw;
+  persistRepeater(); renderRepeaterTabs();
+}
+async function copyAs(fmt){
+  const raw = (currentFlow && currentFlow.req_raw) || ($('#r-req') && $('#r-req').value) || '';
+  if (!raw) return;
+  const scheme = ($('#r-scheme') && $('#r-scheme').value) || 'https';
+  const res = await api('/api/copy', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({raw, scheme, fmt})});
+  try { await navigator.clipboard.writeText(res.text); } catch(e) {}
+  const meta = $('#r-meta'); if (meta) meta.textContent = 'copied ' + fmt;
+}
+let currentPacket = null;
+function toPackets(){
+  if (!currentFlow) return;
+  currentPacket = currentFlow.id;
+  document.querySelector('#nav button[data-v="packets"]').click();
+  showPacket(currentFlow.id);
+}
+async function loadPackets(){
+  const expr = ($('#pk-filter') && $('#pk-filter').value) || '';
+  const inp = $('#pk-filter');
+  try {
+    const d = await api('/api/packets?filter=' + encodeURIComponent(expr) + '&limit=800');
+    if (inp) { inp.classList.remove('filter-bad'); inp.classList.add(expr ? 'filter-ok' : ''); }
+    $('#pk-meta').textContent = d.displayed + ' displayed / ' + d.captured + ' captured';
+    const tb = $('#pk-rows');
+    if (!d.packets.length) {
+      tb.innerHTML = '<tr><td colspan="7"><div class="empty">No packets match. Browse through the proxy first, or clear the filter.</div></td></tr>';
+      return;
+    }
+    tb.innerHTML = d.packets.map(p => `<tr class="${escapeHtml(p.color||'')}" data-id="${p.id}" onclick="showPacket('${p.id}')">
+      <td class="num">${p.no}</td>
+      <td class="mono">${Number(p.time).toFixed(6)}</td>
+      <td class="mono">${escapeHtml(p.src)}</td>
+      <td class="mono" title="${escapeHtml(p.host)}">${escapeHtml(p.dst)}</td>
+      <td>${escapeHtml(p.protocol)}</td>
+      <td class="mono">${p.length}</td>
+      <td class="mono">${escapeHtml(p.info)}</td>
+    </tr>`).join('');
+    if (currentPacket) showPacket(currentPacket);
+  } catch(e) {
+    if (inp) { inp.classList.remove('filter-ok'); inp.classList.add('filter-bad'); }
+    $('#pk-meta').textContent = e.message;
+  }
+}
+function renderTree(nodes){
+  return (nodes||[]).map(n => {
+    const kids = n.children && n.children.length
+      ? `<details open><summary>${escapeHtml(n.name)} <span class="tv">${escapeHtml(n.value||'')}</span></summary>${renderTree(n.children)}</details>`
+      : `<div style="margin-left:16px">${escapeHtml(n.name)} <span class="tv">${escapeHtml(n.value||'')}</span></div>`;
+    return kids;
+  }).join('');
+}
+async function showPacket(id){
+  currentPacket = id;
+  document.querySelectorAll('#pk-rows tr').forEach(r => r.classList.toggle('sel', r.dataset.id === id));
+  const d = await api('/api/packets/' + id);
+  $('#pk-tree-h').textContent = 'Packet details · ' + (d.protocol||'') + ' · ' + (d.host||'');
+  $('#pk-tree').innerHTML = renderTree(d.tree);
+  $('#pk-hex').innerHTML = (d.hex||[]).map(r =>
+    `<div><span class="off">${r.off.toString(16).padStart(8,'0')}</span>${escapeHtml(r.hex)}${' '.repeat(Math.max(0, 48-(r.hex||'').length))}<span class="asc">${escapeHtml(r.ascii)}</span></div>`
+  ).join('') || '';
+}
+async function followStream(){
+  if (!currentPacket) { $('#pk-meta').textContent = 'select a packet first'; return; }
+  const d = await api('/api/packets/' + currentPacket + '/stream');
+  $('#pk-tree-h').textContent = 'Follow HTTP stream · ' + (d.host||'');
+  $('#pk-tree').innerHTML = `<pre class="raw">${escapeHtml(d.text).slice(0,20000)}</pre>`;
+  $('#pk-hex').innerHTML = '<div class="meta" style="padding:12px">' + (d.exchanges||0) + ' exchange(s)</div>';
+}
+async function showConversations(){
+  const d = await api('/api/packets');
+  $('#pk-tree-h').textContent = 'Conversations';
+  $('#pk-tree').innerHTML = (d.conversations||[]).map(c =>
+    `<div class="card" style="margin:8px"><b>${escapeHtml(c.host)}</b>
+     <div class="meta">${c.packets} packets · ${fmtSize(c.bytes)} · ${(c.methods||[]).join(' ')}</div></div>`
+  ).join('') || '<div class="empty">No conversations.</div>';
+}
+function exportPcap(){
+  const expr = ($('#pk-filter') && $('#pk-filter').value) || '';
+  window.open('/api/packets.pcap?filter=' + encodeURIComponent(expr), '_blank');
+}
+async function exportHar(){
+  const har = await api('/api/har');
+  const blob = new Blob([JSON.stringify(har,null,2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sureguard.har'; a.click();
+}
+async function importHar(ev){
+  const f = ev.target.files[0]; if (!f) return;
+  const har = JSON.parse(await f.text());
+  const res = await api('/api/har', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({har})});
+  ev.target.value = ''; loadHistory(); loadSitemap(); refreshStatus();
+  alert('Imported ' + res.imported + ' flow(s)');
+}
+async function crawlFromSitemap(){
+  const host = smHost || ($('#h-host') && $('#h-host').value) || '';
+  if (!host) { alert('Pick a host in the sitemap or set scope first.'); return; }
+  try {
+    const job = await api('/api/crawl', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({seed: host, max_pages: 40})});
+    alert('Crawler started for ' + job.seed);
+  } catch(e) { alert(e.message); }
+}
+async function saveFilters(){
+  const methods = ($('#ix-methods').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  await api('/api/filters', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({methods, path_regex:$('#ix-path').value, url_contains:$('#ix-url').value})});
+}
+async function loadRules(){
+  const d = await api('/api/rules');
+  const f = d.filters || {};
+  if ($('#ix-methods')) $('#ix-methods').value = (f.methods||[]).join(',');
+  if ($('#ix-path')) $('#ix-path').value = f.path_regex || '';
+  if ($('#ix-url')) $('#ix-url').value = f.url_contains || '';
+  $('#rl-list').innerHTML = (d.rules||[]).length ? d.rules.map(r => `
+    <div class="card" style="display:flex;gap:12px;align-items:center">
+      <div style="flex:1"><b>${escapeHtml(r.location)}</b> · ${escapeHtml(r.match)} → ${escapeHtml(r.replace)}
+        <div class="meta">${r.regex?'regex · ':''}${escapeHtml(r.header||'')} ${escapeHtml(r.comment||'')}</div></div>
+      <button class="btn sm danger" onclick="delRule('${r.id}')">Delete</button>
+    </div>`).join('') : '<div class="empty">No rules yet.</div>';
+}
+async function addRule(){
+  try {
+    await api('/api/rules', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({location:$('#rl-loc').value, header:$('#rl-header').value,
+        match:$('#rl-match').value, replace:$('#rl-replace').value, regex:$('#rl-regex').checked})});
+    $('#rl-match').value = ''; $('#rl-replace').value = ''; $('#rl-msg').textContent = 'added';
+    loadRules();
+  } catch(e) { $('#rl-msg').textContent = e.message; }
+}
+async function delRule(id){ await api('/api/rules/'+id,{method:'DELETE'}); loadRules(); }
+async function loadSession(){
+  const s = await api('/api/session');
+  $('#se-inject').checked = !!s.inject;
+  $('#se-update').checked = !!s.update;
+  $('#se-401').checked = !!s.retry_on_401;
+  $('#se-login').value = s.login_raw || '';
+  $('#se-scheme').value = s.login_scheme || 'https';
+  $('#se-cookies').innerHTML = (s.cookies||[]).length ? s.cookies.map(c =>
+    `<div class="card" style="display:flex;gap:10px"><code class="mono">${escapeHtml(c.host)}</code>
+     <b>${escapeHtml(c.name)}</b>=<span class="mono">${escapeHtml(c.value)}</span>
+     <button class="btn sm danger" onclick="delCookie('${escapeHtml(c.host)}','${escapeHtml(c.name)}')">×</button></div>`
+  ).join('') : '<div class="empty">Cookie jar is empty.</div>';
+}
+async function saveSession(){
+  await api('/api/session', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({inject:$('#se-inject').checked, update:$('#se-update').checked,
+      retry_on_401:$('#se-401').checked, login_raw:$('#se-login').value, login_scheme:$('#se-scheme').value})});
+  $('#se-msg').textContent = 'saved'; setTimeout(()=>$('#se-msg').textContent='',1200);
+  loadSession();
+}
+async function clearSession(){ await api('/api/session',{method:'DELETE'}); loadSession(); }
+async function delCookie(host,name){ await api('/api/session/cookie?host='+encodeURIComponent(host)+'&name='+encodeURIComponent(name),{method:'DELETE'}); loadSession(); }
+async function loadEvents(){
+  const kind = ($('#lg-kind') && $('#lg-kind').value) || '';
+  const rows = await api('/api/events?kind='+encodeURIComponent(kind));
+  $('#lg-meta').textContent = rows.length + ' events';
+  $('#lg-rows').innerHTML = rows.map(r => `<tr>
+    <td class="num">${r.id}</td><td>${escapeHtml(r.kind)}</td>
+    <td class="mono">${fmtTime(r.ts)}</td><td>${escapeHtml(r.message)}</td></tr>`).join('')
+    || '<tr><td colspan="4"><div class="empty">Quiet so far.</div></td></tr>';
+  const ws = await api('/api/websockets');
+  $('#ws-list').innerHTML = ws.length ? ws.map(c =>
+    `<div class="card"><b>${escapeHtml(c.url)}</b><div class="meta">${(c.frames||[]).length} frames</div>
+     ${(c.frames||[]).slice(-8).map(f=>`<div class="mono">${escapeHtml(f.dir)} ${escapeHtml(f.opcode)} ${escapeHtml(f.text||'')}</div>`).join('')}</div>`
+  ).join('') : 'No upgrades yet.';
+}
+async function clearEvents(){ await api('/api/events',{method:'DELETE'}); loadEvents(); }
+async function loadAnalyzer(){
+  const host = ($('#an-host') && $('#an-host').value) || '';
+  $('#an-msg').textContent = 'reading history…';
+  const d = await api('/api/analyze?host='+encodeURIComponent(host));
+  $('#an-msg').textContent = d.flows + ' flow(s)';
+  const chip = (arr) => (arr||[]).slice(0,24).map(x => `<span class="pill">${escapeHtml(x.name||x)} ${x.count||''}</span>`).join('');
+  $('#an-out').innerHTML = `
+    <div class="card"><h3>Methods</h3><div class="chiplist">${chip(d.methods)}</div></div>
+    <div class="card"><h3>Parameters</h3><div class="chiplist">${chip(d.parameters)}</div></div>
+    <div class="card"><h3>Hidden fields</h3>${(d.hidden_fields||[]).slice(0,20).map(h=>
+      `<div class="meta"><b>${escapeHtml(h.name)}</b>=${escapeHtml(h.value)} · ${escapeHtml(h.url)}</div>`).join('')||'<div class="empty">None</div>'}</div>
+    <div class="card"><h3>HTML comments</h3>${(d.comments||[]).slice(0,15).map(c=>
+      `<div class="meta">${escapeHtml(c.text)}</div>`).join('')||'<div class="empty">None</div>'}</div>
+    <div class="card"><h3>JS URLs</h3>${(d.js_urls||[]).slice(0,20).map(u=>
+      `<div class="mono">${escapeHtml(u.url)}</div>`).join('')||'<div class="empty">None</div>'}</div>`;
+}
+async function importOpenApi(ev){
+  const f = ev.target.files[0]; if (!f) return;
+  const spec = await f.text();
+  try {
+    const res = await api('/api/openapi', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({spec, record:true})});
+    ev.target.value = '';
+    $('#an-msg').textContent = 'imported ' + res.endpoints.length + ' endpoints';
+    loadHistory(); loadSitemap();
+  } catch(e) { $('#an-msg').textContent = e.message; }
+}
+let lastSbom = null;
+async function runSca(){
+  $('#sc-msg').textContent = 'querying OSV…';
+  try {
+    const res = await api('/api/sca', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({path:$('#sc-path').value.trim()})});
+    lastSbom = res.sbom;
+    const counts = {high:0,medium:0,low:0,info:0};
+    (res.findings||[]).forEach(f => { const s = f.severity==='critical'?'high':f.severity; counts[s]=(counts[s]||0)+1; });
+    sevbar($('#sc-sev'), counts);
+    $('#sc-msg').textContent = (res.packages||[]).length + ' packages · ' + (res.findings||[]).length + ' findings';
+    $('#sc-list').innerHTML = (res.findings||[]).map(f => `
+      <div class="finding ${f.severity==='critical'?'high':f.severity}">
+        <div class="ft"><span class="sev ${f.severity==='critical'?'high':f.severity}">${escapeHtml(f.severity)}</span>
+          <span class="title">${escapeHtml(f.id)}</span>
+          <span class="check">${escapeHtml(f.name)} ${escapeHtml(f.version)}</span></div>
+        <div class="detail">${escapeHtml(f.summary)}</div>
+      </div>`).join('') || '<div class="empty">No known vulnerabilities on these versions.</div>';
+  } catch(e) { $('#sc-msg').textContent = e.message; }
+}
+async function scaFromFile(ev){
+  const f = ev.target.files[0]; if (!f) return;
+  $('#sc-msg').textContent = 'querying OSV…';
+  try {
+    const res = await api('/api/sca', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({filename:f.name, text: await f.text()})});
+    lastSbom = res.sbom;
+    $('#sc-msg').textContent = (res.findings||[]).length + ' findings';
+    $('#sc-path').value = f.name;
+    const ev2 = {findings:res.findings, packages:res.packages, sbom:res.sbom};
+    lastSbom = ev2.sbom;
+    const counts = {high:0,medium:0,low:0,info:0};
+    (res.findings||[]).forEach(f => { const s = f.severity==='critical'?'high':f.severity; counts[s]=(counts[s]||0)+1; });
+    sevbar($('#sc-sev'), counts);
+    $('#sc-list').innerHTML = (res.findings||[]).map(f => `
+      <div class="finding ${f.severity==='critical'?'high':f.severity}">
+        <div class="ft"><span class="sev ${f.severity==='critical'?'high':f.severity}">${escapeHtml(f.severity)}</span>
+          <span class="title">${escapeHtml(f.id)}</span>
+          <span class="check">${escapeHtml(f.name)} ${escapeHtml(f.version)}</span></div>
+        <div class="detail">${escapeHtml(f.summary)}</div>
+      </div>`).join('') || '<div class="empty">No known vulnerabilities on these versions.</div>';
+  } catch(e) { $('#sc-msg').textContent = e.message; }
+}
+function downloadSbom(){
+  if (!lastSbom) { $('#sc-msg').textContent = 'scan first'; return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(lastSbom,null,2)],{type:'application/json'}));
+  a.download = 'sureguard-sbom.json'; a.click();
+}
+async function loadOast(){
+  const s = await api('/api/oast');
+  $('#oa-url').textContent = s.url || 'not listening';
+  $('#oa-msg').textContent = s.listening ? ('port ' + s.port) : 'stopped';
+  $('#oa-hits').innerHTML = (s.hits||[]).map(h =>
+    `<div class="card"><b>${escapeHtml(h.request_line)}</b><div class="meta">${escapeHtml(h.peer)} · ${fmtTime(h.ts)}</div></div>`
+  ).join('') || '<div class="empty">No callbacks yet.</div>';
+}
+async function startOast(){
+  const s = await api('/api/oast/start', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({host:$('#oa-host').value, port: parseInt($('#oa-port').value,10)||0})});
+  $('#oa-url').textContent = s.url; loadOast();
+}
+async function stopOast(){ await api('/api/oast/stop',{method:'POST'}); loadOast(); }
 
 ['h-search','h-host','h-method','h-status','h-mime','h-noise'].forEach(id => {
   const el = document.getElementById(id);

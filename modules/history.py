@@ -49,12 +49,19 @@ class HistoryStore(BaseAddon):
                 duration_ms REAL,
                 req_raw BLOB,
                 resp_raw BLOB,
-                notes TEXT
+                notes TEXT,
+                color TEXT,
+                protocol TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_host ON flows(host);
             CREATE INDEX IF NOT EXISTS idx_ts ON flows(timestamp);
             """
         )
+        c.commit()
+        cols = {r[1] for r in c.execute("PRAGMA table_info(flows)")}
+        for name, decl in (("color", "TEXT"), ("protocol", "TEXT")):
+            if name not in cols:
+                c.execute(f"ALTER TABLE flows ADD COLUMN {name} {decl}")
         c.commit()
 
     # ---------------------------------------------------------- Addon hook
@@ -69,8 +76,9 @@ class HistoryStore(BaseAddon):
         c.execute(
             """INSERT OR REPLACE INTO flows
                (id,timestamp,method,host,path,url,status,mime,
-                req_length,resp_length,duration_ms,req_raw,resp_raw,notes)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                req_length,resp_length,duration_ms,req_raw,resp_raw,notes,
+                color,protocol)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 flow.id,
                 flow.timestamp,
@@ -86,6 +94,9 @@ class HistoryStore(BaseAddon):
                 req.raw(),
                 resp.raw() if resp else b"",
                 json.dumps(flow.notes),
+                getattr(flow, "color", "") or "",
+                getattr(flow, "protocol", "") or (
+                    req.http_version if req.http_version else "http/1.1"),
             ),
         )
         c.commit()
@@ -172,7 +183,23 @@ class HistoryStore(BaseAddon):
             "resp_length": r["resp_length"],
             "duration_ms": r["duration_ms"],
             "notes": json.loads(r["notes"] or "[]"),
+            "color": r["color"] if "color" in r.keys() else "",
+            "protocol": r["protocol"] if "protocol" in r.keys() else "",
         }
+
+    def update_meta(self, flow_id: str, *, color: str | None = None,
+                    notes: list | None = None) -> dict | None:
+        row = self.get(flow_id)
+        if not row:
+            return None
+        if color is not None:
+            self._conn().execute("UPDATE flows SET color=? WHERE id=?",
+                                 (color, flow_id))
+        if notes is not None:
+            self._conn().execute("UPDATE flows SET notes=? WHERE id=?",
+                                 (json.dumps(notes), flow_id))
+        self._conn().commit()
+        return self.get(flow_id)
 
     def clear(self) -> None:
         c = self._conn()

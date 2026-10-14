@@ -123,6 +123,13 @@ class EmbeddedBrowser:
 
     def _args(self, exe: Path, proxy_host: str, proxy_port: int) -> list[str]:
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            from core.ca import CA_CERT_PATH
+            if CA_CERT_PATH.exists():
+                dest = PROFILE_DIR / "sureguard-ca.pem"
+                dest.write_bytes(CA_CERT_PATH.read_bytes())
+        except Exception:
+            pass
         return [
             str(exe),
             f"--user-data-dir={PROFILE_DIR}",

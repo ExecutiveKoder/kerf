@@ -20,17 +20,23 @@ security testing, not because any proprietary code was copied.
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Intercepting proxy (HTTP + HTTPS via own CA) | ✅ built | `core/proxy.py`, `core/ca.py` |
-| HTTP history (search, filter, scope) | ✅ built | SQLite-backed, `modules/history.py` |
-| Repeater (edit + replay one request) | ✅ built | `modules/repeater.py` |
-| Decoder / Encoder (base64, url, hex, html, hashes) | ✅ built | `modules/decoder.py` |
-| Comparer (word/byte diffing) | ✅ built | `modules/comparer.py` |
-| Sequencer (token entropy analysis) | ✅ built | `modules/sequencer.py` |
-| Passive scanner (headers, cookies, info leaks, mixed content) | ✅ built | `modules/passive_scanner.py` |
-| Extension / plugin API | ✅ built | `modules/extensions.py` |
-| Web UI | ✅ built | `ui/` |
-| **Active scanner engine** | 🟡 scaffold only | Ships with **no attack checks** — you supply them for authorized targets. See below. |
-| **Intruder-style attack automation** | 🟡 scaffold only | Same: insertion-point plumbing provided, payloads are operator-supplied. |
+| Intercepting proxy (HTTP/1.1 + HTTP/2 + WebSockets, HTTPS via own CA) | ✅ built | `core/proxy.py`, `core/ca.py` |
+| HTTP history, sitemap, HAR import/export | ✅ built | `modules/history.py`, `modules/exportfmt.py` |
+| Live intercept with filters | ✅ built | `modules/intercept.py` |
+| Match and replace | ✅ built | `modules/rules.py` |
+| Cookie jar / session handling | ✅ built | `modules/session.py` |
+| Repeater tabs + copy as curl/fetch/Python | ✅ built | `modules/repeater.py` |
+| Isolated Chromium | ✅ built | `modules/browser.py` |
+| Decoder, comparer, sequencer | ✅ built | `modules/` |
+| Target analyzer + OpenAPI import | ✅ built | `modules/analyzer.py`, `modules/openapi.py` |
+| In-scope crawler | ✅ built | `modules/crawler.py` |
+| Event logger + local OAST listener | ✅ built | `modules/logger.py`, `modules/oast.py` |
+| Dependency SCA + CycloneDX SBOM (OSV) | ✅ built | `modules/sca.py` |
+| Outbound Tor / SOCKS / HTTP + client certs | ✅ built | `modules/upstream.py` |
+| BYO-model assistant | ✅ built | `modules/assistant.py` |
+| Projects + HTML/JSON reports | ✅ built | `modules/projects.py`, `modules/reporting.py` |
+| Passive scanner | ✅ built | `modules/passive_scanner.py` |
+| Active scanner / Intruder | 🟡 engine | Authorized-scope only. No public exploit catalog. |
 
 ## Why the active scanner ships empty
 
@@ -51,8 +57,8 @@ packaged exploitation toolkit.
 ## Install
 
 ```bash
-git clone <your-fork-url> DastDay
-cd DastDay
+git clone https://github.com/ExecutiveKoder/sureguard.git
+cd sureguard
 pip install -r requirements.txt
 ```
 

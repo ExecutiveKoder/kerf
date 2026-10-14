@@ -24,6 +24,11 @@ from modules.intercept import InterceptQueue
 from modules.browser import EmbeddedBrowser
 from modules.upstream import UpstreamRoute
 from modules.extensions import ExtensionAPI, ExtensionManager
+from modules.rules import RuleEngine
+from modules.session import SessionHandler
+from modules.logger import EventLog
+from modules.oast import OastListener
+from modules.crawler import Crawler
 from ui.server import create_app
 
 
@@ -39,6 +44,11 @@ class AppContext:
     projects: ProjectManager
     assistant: Assistant
     intercept: InterceptQueue
+    rules: RuleEngine
+    session: SessionHandler
+    events: EventLog
+    oast: OastListener
+    crawler: Crawler
     extensions_loaded: list[str] = field(default_factory=list)
     browser: EmbeddedBrowser = field(default_factory=EmbeddedBrowser)
     upstream: UpstreamRoute = field(default_factory=UpstreamRoute)
@@ -80,22 +90,33 @@ def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
                               passive=passive, active=active, db_path=db_path,
                               projects_dir=projects_dir)
 
-    # Intercept first so edits land before history/passive see the flow.
-    intercept = InterceptQueue(interceptor)
+    events = EventLog()
+    rules = RuleEngine()
+    session = SessionHandler(send_raw=repeater.send_raw)
+    intercept = InterceptQueue(interceptor, rules=rules)
+    # Rewrite and session cookies first; intercept sees the result; history last.
+    interceptor.add(rules)
+    interceptor.add(session)
     interceptor.add(intercept)
     interceptor.add(history)
     interceptor.add(passive)
+
+    oast = OastListener(events=events)
+    crawler = Crawler(send=send, interceptor=interceptor, history=history,
+                      events=events)
 
     # Load extensions (passive + active examples ship; add your own checks too).
     api = ExtensionAPI(interceptor, passive, active, intruder)
     loaded = ExtensionManager(api, ext_dir).load_all()
 
     ctx = AppContext(interceptor, proxy, history, passive, repeater, active,
-                     intruder, projects, None, intercept, loaded)  # type: ignore[arg-type]
+                     intruder, projects, None, intercept, rules, session,
+                     events, oast, crawler, loaded)  # type: ignore[arg-type]
     ctx.assistant = Assistant(ctx)
     ctx.browser = EmbeddedBrowser()
     ctx.upstream = UpstreamRoute()
     ctx.proxy.upstream = ctx.upstream
+    ctx.proxy.events = events
     return ctx
 
 

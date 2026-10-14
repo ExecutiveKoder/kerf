@@ -21,6 +21,7 @@ import asyncio
 import re
 import time
 import uuid
+import json
 from urllib.parse import urlsplit, urlencode, parse_qsl
 
 from core.http_message import HttpRequest, Flow
@@ -35,7 +36,7 @@ class InsertionPoint:
     """A place in a request where a check may substitute a payload."""
 
     def __init__(self, kind: str, name: str, value: str) -> None:
-        self.kind = kind      # "query", "body-form", "cookie"
+        self.kind = kind      # query, body-form, cookie, json, graphql-var, multipart, header
         self.name = name
         self.value = value
 
@@ -85,20 +86,113 @@ class ActiveCheck:
 # Insertion points + payload substitution
 # --------------------------------------------------------------------------- #
 
+def _walk_json(obj, prefix=""):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            path = f"{prefix}.{k}" if prefix else str(k)
+            if isinstance(v, (dict, list)):
+                yield from _walk_json(v, path)
+            else:
+                yield path, "" if v is None else str(v)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            path = f"{prefix}[{i}]"
+            if isinstance(v, (dict, list)):
+                yield from _walk_json(v, path)
+            else:
+                yield path, "" if v is None else str(v)
+
+
+def _set_json(obj, path: str, value: str):
+    segs = []
+    buf = ""
+    i = 0
+    while i < len(path):
+        ch = path[i]
+        if ch == ".":
+            if buf:
+                segs.append(buf)
+                buf = ""
+            i += 1
+        elif ch == "[":
+            if buf:
+                segs.append(buf)
+                buf = ""
+            j = path.find("]", i)
+            segs.append(int(path[i + 1:j]))
+            i = j + 1
+        else:
+            buf += ch
+            i += 1
+    if buf:
+        segs.append(buf)
+    cur = obj
+    for s in segs[:-1]:
+        cur = cur[s]
+    last = segs[-1]
+    cur[last] = value
+
+
+def _parse_multipart(ctype: str, body: bytes) -> list[tuple[str, str, bytes]]:
+    if "boundary=" not in ctype:
+        return []
+    boundary = ctype.split("boundary=", 1)[1].split(";")[0].strip().strip('"')
+    marker = ("--" + boundary).encode()
+    parts = body.split(marker)
+    out = []
+    for part in parts:
+        part = part.strip(b"\r\n")
+        if not part or part == b"--":
+            continue
+        head, _, pdata = part.partition(b"\r\n\r\n")
+        if not pdata:
+            head, _, pdata = part.partition(b"\n\n")
+        name = ""
+        for line in head.decode("latin-1", "replace").splitlines():
+            if line.lower().startswith("content-disposition:"):
+                m = re.search(r'name="([^"]+)"', line)
+                if m:
+                    name = m.group(1)
+        if name:
+            out.append((name, pdata.rstrip(b"\r\n").decode("latin-1", "replace"), pdata))
+    return out
+
+
 def discover_insertion_points(req: HttpRequest) -> list:
     points: list = []
     for k, v in req.query_params:
         points.append(InsertionPoint("query", k, v))
     ctype = (req.header("content-type") or "").lower()
+    body_txt = req.body.decode("latin-1") if req.body else ""
     if "application/x-www-form-urlencoded" in ctype and req.body:
-        for k, v in parse_qsl(req.body.decode("latin-1"), keep_blank_values=True):
+        for k, v in parse_qsl(body_txt, keep_blank_values=True):
             points.append(InsertionPoint("body-form", k, v))
+    if "application/json" in ctype or "application/graphql" in ctype or (
+            body_txt.lstrip().startswith("{") and "query" in body_txt[:200]):
+        try:
+            data = json.loads(req.body.decode("utf-8"))
+        except Exception:
+            data = None
+        if isinstance(data, dict) and "query" in data and "variables" in data \
+                and isinstance(data["variables"], dict):
+            for k, v in data["variables"].items():
+                if not isinstance(v, (dict, list)):
+                    points.append(InsertionPoint("graphql-var", k, "" if v is None else str(v)))
+        elif data is not None:
+            for path, val in _walk_json(data):
+                points.append(InsertionPoint("json", path, val))
+    if "multipart/form-data" in ctype and req.body:
+        for name, val, _ in _parse_multipart(ctype, req.body):
+            points.append(InsertionPoint("multipart", name, val))
     cookie = req.header("cookie")
     if cookie:
         for pair in cookie.split(";"):
             if "=" in pair:
                 k, _, v = pair.strip().partition("=")
                 points.append(InsertionPoint("cookie", k, v))
+    for k, v in req.headers:
+        if k.lower() in ("authorization", "x-api-key", "x-csrf-token", "x-auth-token"):
+            points.append(InsertionPoint("header", k, v))
     return points
 
 
@@ -131,6 +225,46 @@ def apply_payload(base: HttpRequest, point: InsertionPoint, payload: str,
             elif pair.strip():
                 out.append(pair.strip())
         req.set_header("Cookie", "; ".join(out))
+        return req
+
+    if point.kind == "header":
+        req.set_header(point.name, new_value)
+        return req
+
+    if point.kind == "json":
+        try:
+            data = json.loads(base.body.decode("utf-8") or "null")
+            _set_json(data, point.name, new_value)
+            req.body = json.dumps(data).encode("utf-8")
+            req.set_header("Content-Length", str(len(req.body)))
+        except Exception:
+            pass
+        return req
+
+    if point.kind == "graphql-var":
+        try:
+            data = json.loads(base.body.decode("utf-8"))
+            if isinstance(data.get("variables"), dict):
+                data["variables"][point.name] = new_value
+                req.body = json.dumps(data).encode("utf-8")
+                req.set_header("Content-Length", str(len(req.body)))
+        except Exception:
+            pass
+        return req
+
+    if point.kind == "multipart":
+        ctype = base.header("content-type") or ""
+        if "boundary=" in ctype:
+            boundary = ctype.split("boundary=", 1)[1].split(";")[0].strip().strip('"')
+            marker = ("--" + boundary).encode()
+            chunks = [b""]
+            for name, val, raw in _parse_multipart(ctype, base.body):
+                payload = new_value.encode("latin-1") if name == point.name else raw.rstrip(b"\r\n")
+                disp = f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode()
+                chunks.append(disp + payload + b"\r\n")
+            body = marker.join(chunks) + marker + b"--\r\n"
+            req.body = body
+            req.set_header("Content-Length", str(len(req.body)))
         return req
 
     return req

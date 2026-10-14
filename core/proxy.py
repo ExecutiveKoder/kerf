@@ -23,10 +23,39 @@ from urllib.parse import urlsplit
 
 from .ca import CertificateAuthority
 from .http_message import Flow, HttpRequest, HttpResponse
+from .http2 import HAVE_H2, H2Client, H2Server
 from .interceptor import Interceptor
+from .websocket import drain_frames, is_websocket
 
 MAX_HEADER = 256 * 1024
 MAX_BODY = 50 * 1024 * 1024
+
+
+def tls_summary(sslobj) -> dict:
+    if not sslobj:
+        return {}
+    try:
+        cert = sslobj.getpeercert() or {}
+    except Exception:
+        cert = {}
+    subject = {}
+    for tup in cert.get("subject") or []:
+        for k, v in tup:
+            subject[k] = v
+    issuer = {}
+    for tup in cert.get("issuer") or []:
+        for k, v in tup:
+            issuer[k] = v
+    cipher = sslobj.cipher() or (None, None, None)
+    return {
+        "alpn": sslobj.selected_alpn_protocol(),
+        "version": sslobj.version(),
+        "cipher": cipher[0],
+        "subject": subject,
+        "issuer": issuer,
+        "san": [v for k, v in cert.get("subjectAltName", [])],
+        "notAfter": cert.get("notAfter"),
+    }
 
 
 class ProxyServer:
@@ -37,6 +66,9 @@ class ProxyServer:
         self.ca = CertificateAuthority()
         self.interceptor = interceptor or Interceptor()
         self.upstream = None
+        self.events = None
+        self.ws_log: list[dict] = []
+        self._last_tls: dict | None = None
         self._server: asyncio.AbstractServer | None = None
 
     async def start(self) -> None:
@@ -105,7 +137,7 @@ class ProxyServer:
             url = f"http://{host_hdr}{target}"
 
         req = HttpRequest(method, url, headers, body, version)
-        await self._proxy_and_relay(req, writer)
+        await self._proxy_and_relay(req, reader, writer)
 
     async def _write_help(self, writer) -> None:
         body = (
@@ -149,6 +181,11 @@ class ProxyServer:
             kf.write(key_pem); kf.close()
             server_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             server_ctx.load_cert_chain(cf.name, kf.name)
+            if HAVE_H2:
+                try:
+                    server_ctx.set_alpn_protocols(["h2", "http/1.1"])
+                except NotImplementedError:
+                    pass
         finally:
             os.unlink(cf.name)
             os.unlink(kf.name)
@@ -168,8 +205,14 @@ class ProxyServer:
         protocol._stream_reader = tls_reader  # rebind reader to decrypted stream
         tls_writer = asyncio.StreamWriter(new_transport, protocol, tls_reader, loop)
 
-        # Now read origin-form requests off the decrypted tunnel, keep-alive.
+        if self.events:
+            self.events.add("connect", f"CONNECT {host}:{port}")
         scheme_host = f"https://{host}:{port}" if port != 443 else f"https://{host}"
+        sslobj = new_transport.get_extra_info("ssl_object")
+        alpn = sslobj.selected_alpn_protocol() if sslobj else None
+        if alpn == "h2" and HAVE_H2:
+            await self._handle_h2_tunnel(tls_reader, tls_writer, scheme_host)
+            return
         while True:
             line = await tls_reader.readline()
             if not line:
@@ -179,34 +222,135 @@ class ProxyServer:
                 break
             await self._handle_plain(p[0], p[1], p[2], tls_reader, tls_writer,
                                      scheme_host=scheme_host)
-            # crude keep-alive: loop for the next request on the same tunnel
 
     # ------------------------------------------------------------- upstream
 
-    async def _proxy_and_relay(self, req: HttpRequest, writer) -> None:
+    async def _process_flow(self, req: HttpRequest) -> HttpResponse | None:
         from modules.intercept import FlowDropped
         flow = Flow(request=req)
         try:
             req = await self.interceptor.on_request(flow)
         except FlowDropped:
-            await self._write_dropped(writer, "request")
-            return
+            if self.events:
+                self.events.add("drop", f"dropped request {req.method} {req.url}")
+            return None
 
         started = time.perf_counter()
         resp = await self._send_upstream(req)
         flow.duration_ms = (time.perf_counter() - started) * 1000
         flow.response = resp
+        flow.tls = self._last_tls
+        if req.http_version == "HTTP/2" or (resp and resp.http_version == "HTTP/2"):
+            flow.protocol = "http/2"
+        if self._last_tls and self._last_tls.get("alpn"):
+            flow.protocol = self._last_tls.get("alpn") or flow.protocol
 
         try:
             resp = await self.interceptor.on_response(flow)
         except FlowDropped:
-            await self._write_dropped(writer, "response")
-            return
+            if self.events:
+                self.events.add("drop", f"dropped response {req.method} {req.url}")
+            return None
         flow.response = resp
         await self.interceptor.on_flow_complete(flow)
+        return resp
 
+    async def _proxy_and_relay(self, req: HttpRequest, reader, writer) -> None:
+        if is_websocket(req):
+            await self._handle_websocket(req, reader, writer)
+            return
+        resp = await self._process_flow(req)
+        if resp is None:
+            await self._write_dropped(writer, "request")
+            return
         writer.write(resp.raw())
         await writer.drain()
+
+    async def _handle_h2_tunnel(self, reader, writer, scheme_host: str) -> None:
+        srv = H2Server()
+        writer.write(srv.pending())
+        await writer.drain()
+        while True:
+            data = await reader.read(65535)
+            if not data:
+                break
+            for sid, req in srv.feed_requests(data, scheme_host):
+                req.http_version = "HTTP/2"
+                resp = await self._process_flow(req)
+                if resp is None:
+                    resp = HttpResponse(403, "Forbidden",
+                                        [("Content-Type", "text/plain")],
+                                        b"SureGuard: dropped by intercept.\n",
+                                        "HTTP/2")
+                writer.write(srv.send_response(sid, resp))
+                await writer.drain()
+            extra = srv.pending()
+            if extra:
+                writer.write(extra)
+                await writer.drain()
+
+    async def _handle_websocket(self, req: HttpRequest, client_reader, client_writer):
+        from modules.intercept import FlowDropped
+        flow = Flow(request=req, protocol="websocket")
+        try:
+            req = await self.interceptor.on_request(flow)
+        except FlowDropped:
+            await self._write_dropped(client_writer, "request")
+            return
+        up_reader, up_writer, _tls = await self._open_upstream(req, close_hint=False)
+        if up_reader is None:
+            client_writer.write(
+                b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
+            await client_writer.drain()
+            return
+        up_writer.write(req.raw())
+        await up_writer.drain()
+        resp = await self._read_response(up_reader)
+        flow.response = resp
+        try:
+            await self.interceptor.on_response(flow)
+        except FlowDropped:
+            await self._write_dropped(client_writer, "response")
+            return
+        await self.interceptor.on_flow_complete(flow)
+        client_writer.write(resp.raw())
+        await client_writer.drain()
+        if resp.status_code != 101:
+            up_writer.close()
+            return
+        conv = {"url": req.url, "frames": [], "started": time.time()}
+        self.ws_log.append(conv)
+        if self.events:
+            self.events.add("websocket", f"upgrade {req.url}")
+
+        async def pump(src, dst, direction):
+            buf = bytearray()
+            try:
+                while True:
+                    chunk = await src.read(65535)
+                    if not chunk:
+                        break
+                    buf.extend(chunk)
+                    for fr in drain_frames(buf):
+                        fr["dir"] = direction
+                        fr["ts"] = time.time()
+                        conv["frames"].append(fr)
+                        if self.events:
+                            self.events.add("websocket",
+                                            f"{direction} {fr['opcode']} {fr['length']}B")
+                    dst.write(chunk)
+                    await dst.drain()
+            except Exception:
+                pass
+
+        await asyncio.gather(
+            pump(client_reader, up_writer, "in"),
+            pump(up_reader, client_writer, "out"),
+        )
+        try:
+            up_writer.close()
+        except Exception:
+            pass
 
     async def _write_dropped(self, writer, kind: str) -> None:
         body = f"SureGuard: {kind} dropped by intercept.\n".encode()
@@ -221,6 +365,47 @@ class ProxyServer:
         except Exception:
             pass
 
+    async def _open_upstream(self, req: HttpRequest, *, close_hint: bool = True):
+        parts = urlsplit(req.url)
+        host = parts.hostname or ""
+        if not host:
+            return None, None, None
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        ssl_ctx = None
+        if parts.scheme == "https":
+            ssl_ctx = ssl.create_default_context()
+            if HAVE_H2:
+                try:
+                    ssl_ctx.set_alpn_protocols(["h2", "http/1.1"])
+                except NotImplementedError:
+                    pass
+            if self.upstream and hasattr(self.upstream, "client_cert_paths"):
+                pair = self.upstream.client_cert_paths()
+                if pair:
+                    try:
+                        ssl_ctx.load_cert_chain(pair[0], pair[1])
+                    except Exception as exc:
+                        if self.events:
+                            self.events.add("tls", f"client cert failed: {exc}")
+        try:
+            if self.upstream:
+                up_reader, up_writer = await self.upstream.open(host, port, ssl_ctx=ssl_ctx)
+            else:
+                up_reader, up_writer = await asyncio.open_connection(
+                    host, port, ssl=ssl_ctx,
+                    server_hostname=host if ssl_ctx else None)
+        except Exception as exc:
+            if self.events:
+                self.events.add("error", f"upstream {host}:{port} {exc}")
+            return None, None, exc
+        sslobj = up_writer.get_extra_info("ssl_object")
+        tls = tls_summary(sslobj) if sslobj else None
+        self._last_tls = tls
+        if close_hint:
+            req.set_header("Accept-Encoding", "identity")
+            req.set_header("Connection", "close")
+        return up_reader, up_writer, tls
+
     async def _send_upstream(self, req: HttpRequest) -> HttpResponse:
         parts = urlsplit(req.url)
         host = parts.hostname or ""
@@ -231,37 +416,44 @@ class ProxyServer:
                                  b"using Repeater, include a 'Host:' header. If this came "
                                  b"from a browser, set SureGuard as the proxy rather than "
                                  b"connecting to it directly."))
-        port = parts.port or (443 if parts.scheme == "https" else 80)
-        ssl_ctx = None
-        if parts.scheme == "https":
-            ssl_ctx = ssl.create_default_context()
-            # We validate upstream normally; this proxy is not a MITM of real CAs.
-
+        up_reader, up_writer, err = await self._open_upstream(req)
+        if up_reader is None:
+            detail = f"SureGuard upstream error: {err}" if err else "SureGuard upstream error"
+            return HttpResponse(502, "Bad Gateway",
+                                [("Content-Type", "text/plain")],
+                                detail.encode())
+        alpn = (self._last_tls or {}).get("alpn")
         try:
-            if self.upstream:
-                up_reader, up_writer = await self.upstream.open(host, port, ssl_ctx=ssl_ctx)
-            else:
-                up_reader, up_writer = await asyncio.open_connection(
-                    host, port, ssl=ssl_ctx,
-                    server_hostname=host if ssl_ctx else None)
-        except (OSError, ssl.SSLError) as exc:
-            return HttpResponse(502, "Bad Gateway",
-                                [("Content-Type", "text/plain")],
-                                f"SureGuard upstream error: {exc}".encode())
-        except Exception as exc:
-            return HttpResponse(502, "Bad Gateway",
-                                [("Content-Type", "text/plain")],
-                                f"SureGuard outbound proxy error: {exc}".encode())
+            if alpn == "h2" and HAVE_H2:
+                return await self._send_h2(up_reader, up_writer, req)
+            up_writer.write(req.raw())
+            await up_writer.drain()
+            return await self._read_response(up_reader)
+        finally:
+            try:
+                up_writer.close()
+            except Exception:
+                pass
 
-        # Force no compression/keep-alive we can't handle, keep it simple+correct.
-        req.set_header("Accept-Encoding", "identity")
-        req.set_header("Connection", "close")
-        up_writer.write(req.raw())
-        await up_writer.drain()
-
-        resp = await self._read_response(up_reader)
-        up_writer.close()
-        return resp
+    async def _send_h2(self, reader, writer, req: HttpRequest) -> HttpResponse:
+        client = H2Client()
+        writer.write(client.request_bytes(req))
+        await writer.drain()
+        while True:
+            data = await reader.read(65535)
+            if not data:
+                break
+            extra = client.conn.data_to_send()
+            resp = client.feed(data)
+            extra += client.conn.data_to_send()
+            if extra:
+                writer.write(extra)
+                await writer.drain()
+            if resp:
+                return resp
+        return HttpResponse(502, "Bad Gateway",
+                            [("Content-Type", "text/plain")],
+                            b"HTTP/2 stream ended without a response")
 
     # --------------------------------------------------------------- parse
 

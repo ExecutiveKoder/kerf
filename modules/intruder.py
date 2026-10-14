@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+import re
 import time
 import uuid
 from urllib.parse import urlsplit
@@ -166,7 +167,8 @@ class IntruderEngine:
 
     def start(self, *, template: str, scheme: str = "https",
               attack_type: str = "sniper", set_names=None, custom=None,
-              grep=None, concurrency: int = 20, throttle_ms: int = 0) -> dict:
+              grep=None, extract: str = "", concurrency: int = 20,
+        throttle_ms: int = 0) -> dict:
         literals, bases = parse_positions(template)
         if not bases:
             raise ValueError("No positions marked. Wrap a value in § markers.")
@@ -191,14 +193,15 @@ class IntruderEngine:
         }
         self._attacks[attack_id] = state
 
+        state["extract"] = extract or ""
         task = asyncio.create_task(self._run(
             state, literals, bases, sets, attack_type, scheme,
-            grep, concurrency, throttle_ms))
+            grep, extract or "", concurrency, throttle_ms))
         state["_task"] = task
         return self.public_state(attack_id)
 
     async def _run(self, state, literals, bases, sets, attack_type, scheme,
-                   grep, concurrency, throttle_ms):
+                   grep, extract, concurrency, throttle_ms):
         sem = asyncio.Semaphore(max(1, concurrency))
         index = {"i": 0}
         lock = asyncio.Lock()
@@ -218,6 +221,15 @@ class IntruderEngine:
                     matches = [g for g in grep if g.encode("latin-1", "ignore") in body]
                     reflected = payload_str and payload_str.encode(
                         "latin-1", "ignore") in body
+                    extracted = ""
+                    if extract:
+                        try:
+                            m = re.search(extract.encode("utf-8"), body)
+                            if m:
+                                extracted = (m.group(1) if m.lastindex
+                                             else m.group(0)).decode("latin-1", "replace")
+                        except re.error:
+                            extracted = ""
                     row = {
                         "n": idx, "payload": payload_str,
                         "status": resp.status_code if resp else 0,
@@ -225,11 +237,13 @@ class IntruderEngine:
                         "time_ms": round(elapsed, 1),
                         "reflected": bool(reflected),
                         "matches": matches,
+                        "extracted": extracted,
                     }
                 except Exception as exc:
                     row = {"n": idx, "payload": "|".join(position_values),
                            "status": 0, "length": 0, "time_ms": 0,
-                           "reflected": False, "matches": [], "error": repr(exc)}
+                           "reflected": False, "matches": [],
+                           "extracted": "", "error": repr(exc)}
                 async with lock:
                     state["results"].append(row)
                     state["completed"] += 1

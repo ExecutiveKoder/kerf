@@ -16,12 +16,13 @@ from typing import List, Optional
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from core.http_message import Flow
 from modules import decoder, comparer, sequencer, payloads, reporting
+from modules import exportfmt, analyzer, sca, openapi, packets
 from modules.active_scan import discover_insertion_points
 from modules.assistant import list_providers
 from modules.repeater import Repeater
@@ -69,6 +70,7 @@ class IntruderStartReq(BaseModel):
     set_names: List[str] = []
     custom: Optional[List[List[str]]] = None
     grep: List[str] = []
+    extract: str = ""
     concurrency: int = 20
     throttle_ms: int = 0
 
@@ -123,6 +125,83 @@ class UpstreamReq(BaseModel):
     port: Optional[int] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    client_cert: Optional[str] = None
+    client_key: Optional[str] = None
+
+
+class RuleReq(BaseModel):
+    enabled: Optional[bool] = True
+    location: Optional[str] = "request-header"
+    match: Optional[str] = ""
+    replace: Optional[str] = ""
+    regex: Optional[bool] = False
+    header: Optional[str] = ""
+    hosts: Optional[List[str]] = None
+    comment: Optional[str] = ""
+
+
+class FilterReq(BaseModel):
+    methods: Optional[List[str]] = None
+    path_regex: Optional[str] = None
+    url_contains: Optional[str] = None
+    mime_contains: Optional[str] = None
+    in_scope_only: Optional[bool] = None
+
+
+class SessionReq(BaseModel):
+    inject: Optional[bool] = None
+    update: Optional[bool] = None
+    retry_on_401: Optional[bool] = None
+    login_raw: Optional[str] = None
+    login_scheme: Optional[str] = None
+
+
+class CookieReq(BaseModel):
+    host: str
+    name: str
+    value: str = ""
+
+
+class CopyReq(BaseModel):
+    raw: str
+    scheme: str = "https"
+    fmt: str = "curl"
+
+
+class HarImportReq(BaseModel):
+    har: dict
+
+
+class FlowMetaReq(BaseModel):
+    color: Optional[str] = None
+    notes: Optional[List[str]] = None
+
+
+class OastStartReq(BaseModel):
+    host: str = "127.0.0.1"
+    port: int = 0
+
+
+class CrawlReq(BaseModel):
+    seed: str
+    max_pages: int = 40
+    map_paths: bool = True
+
+
+class OpenApiReq(BaseModel):
+    spec: str
+    base_url: str = ""
+    record: bool = False
+
+
+class ScaReq(BaseModel):
+    path: Optional[str] = None
+    text: Optional[str] = None
+    filename: Optional[str] = "requirements.txt"
+
+
+class AnalyzerReq(BaseModel):
+    host: str = ""
 
 
 def _request_from_history(ctx, flow_id: str):
@@ -165,6 +244,78 @@ def create_app(ctx) -> FastAPI:
     def clear_history():
         ctx.history.clear()
         return {"ok": True}
+
+    @app.post("/api/flow/{flow_id}/meta")
+    def flow_meta(flow_id: str, body: FlowMetaReq):
+        row = ctx.history.update_meta(flow_id, color=body.color, notes=body.notes)
+        if not row:
+            raise HTTPException(404, "flow not found")
+        return row
+
+    @app.post("/api/copy")
+    def copy_as(body: CopyReq):
+        if body.fmt == "fetch":
+            return {"text": exportfmt.copy_as_fetch(body.raw, body.scheme)}
+        if body.fmt == "python":
+            return {"text": exportfmt.copy_as_python(body.raw, body.scheme)}
+        return {"text": exportfmt.copy_as_curl(body.raw, body.scheme)}
+
+    @app.get("/api/har")
+    def export_har(host: str = "", search: str = "", limit: int = 200):
+        rows = ctx.history.list(host=host or None, search=search or None, limit=limit)
+        full = []
+        for r in rows:
+            item = ctx.history.get(r["id"])
+            if item:
+                full.append(item)
+        return exportfmt.export_har(full)
+
+    @app.post("/api/har")
+    def import_har(body: HarImportReq):
+        flows = exportfmt.import_har(body.har)
+        for fl in flows:
+            ctx.history.record(fl)
+        return {"imported": len(flows)}
+
+    @app.get("/api/packets")
+    def packets_list(filter: str = "", limit: int = 800):
+        try:
+            return packets.list_packets(ctx.history, expr=filter, limit=limit)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.get("/api/packets/{flow_id}")
+    def packets_one(flow_id: str):
+        d = packets.packet_detail(ctx.history, flow_id)
+        if not d:
+            raise HTTPException(404, "packet not found")
+        return d
+
+    @app.get("/api/packets/{flow_id}/stream")
+    def packets_stream(flow_id: str):
+        row = ctx.history.get(flow_id)
+        if not row:
+            raise HTTPException(404, "packet not found")
+        host = row.get("host") or ""
+        full = []
+        for s in ctx.history.list(host=host, hide_noise=False, limit=400):
+            item = ctx.history.get(s["id"])
+            if item:
+                full.append(item)
+        full.sort(key=lambda r: r.get("timestamp") or 0)
+        return packets.follow_stream(full, host)
+
+    @app.get("/api/packets.pcap")
+    def packets_pcap(filter: str = "", limit: int = 400):
+        listing = packets.list_packets(ctx.history, expr=filter, limit=limit)
+        rows = []
+        for p in listing["packets"]:
+            item = ctx.history.get(p["id"])
+            if item:
+                rows.append(item)
+        blob = packets.export_pcap(rows)
+        return Response(content=blob, media_type="application/vnd.tcpdump.pcap",
+                        headers={"Content-Disposition": "attachment; filename=sureguard.pcap"})
 
     # ------------------------------------------------------------- scope
 
@@ -326,7 +477,7 @@ def create_app(ctx) -> FastAPI:
             return ctx.intruder.start(
                 template=body.template, scheme=body.scheme,
                 attack_type=body.attack_type, set_names=body.set_names,
-                custom=body.custom, grep=body.grep,
+                custom=body.custom, grep=body.grep, extract=body.extract,
                 concurrency=body.concurrency, throttle_ms=body.throttle_ms)
         except PermissionError as exc:
             raise HTTPException(403, str(exc))
@@ -481,6 +632,152 @@ def create_app(ctx) -> FastAPI:
         ctx.assistant.reset_conversation()
         return {"ok": True}
 
+    # ------------------------------------------------------- match/replace
+
+    @app.get("/api/rules")
+    def rules_get():
+        return ctx.rules.public()
+
+    @app.post("/api/rules")
+    def rules_add(body: RuleReq):
+        data = body.model_dump() if hasattr(body, "model_dump") else body.dict()
+        try:
+            return ctx.rules.add_rule(data)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post("/api/rules/{rule_id}")
+    def rules_update(rule_id: str, body: RuleReq):
+        data = body.model_dump(exclude_none=True) if hasattr(body, "model_dump") else body.dict(exclude_none=True)
+        try:
+            return ctx.rules.update_rule(rule_id, data)
+        except KeyError:
+            raise HTTPException(404, "rule not found")
+
+    @app.delete("/api/rules/{rule_id}")
+    def rules_delete(rule_id: str):
+        if not ctx.rules.delete_rule(rule_id):
+            raise HTTPException(404, "rule not found")
+        return {"ok": True}
+
+    @app.post("/api/filters")
+    def filters_set(body: FilterReq):
+        data = body.model_dump(exclude_none=True) if hasattr(body, "model_dump") else body.dict(exclude_none=True)
+        return ctx.rules.set_filters(data)
+
+    # ------------------------------------------------------------- session
+
+    @app.get("/api/session")
+    def session_get():
+        return ctx.session.public()
+
+    @app.post("/api/session")
+    def session_set(body: SessionReq):
+        data = body.model_dump(exclude_none=True) if hasattr(body, "model_dump") else body.dict(exclude_none=True)
+        return ctx.session.configure(data)
+
+    @app.post("/api/session/cookie")
+    def session_cookie(body: CookieReq):
+        return ctx.session.set_cookie(body.host, body.name, body.value)
+
+    @app.delete("/api/session/cookie")
+    def session_cookie_del(host: str, name: str):
+        return ctx.session.delete_cookie(host, name)
+
+    @app.delete("/api/session")
+    def session_clear():
+        return ctx.session.clear()
+
+    # -------------------------------------------------------------- logger
+
+    @app.get("/api/events")
+    def events_list(kind: str = "", limit: int = 400):
+        return ctx.events.list(kind=kind, limit=limit)
+
+    @app.delete("/api/events")
+    def events_clear():
+        ctx.events.clear()
+        return {"ok": True}
+
+    @app.get("/api/websockets")
+    def websockets():
+        return ctx.proxy.ws_log[-80:]
+
+    # ---------------------------------------------------------------- oast
+
+    @app.get("/api/oast")
+    def oast_get():
+        return ctx.oast.public()
+
+    @app.post("/api/oast/start")
+    async def oast_start(body: OastStartReq):
+        return await ctx.oast.start(body.host, body.port)
+
+    @app.post("/api/oast/stop")
+    async def oast_stop():
+        return await ctx.oast.stop()
+
+    @app.delete("/api/oast")
+    def oast_clear():
+        return ctx.oast.clear()
+
+    # -------------------------------------------------------------- crawler
+
+    @app.post("/api/crawl")
+    def crawl_start(body: CrawlReq):
+        try:
+            return ctx.crawler.start(body.seed, max_pages=body.max_pages,
+                                     map_paths=body.map_paths)
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc))
+
+    @app.get("/api/crawl")
+    def crawl_jobs():
+        return ctx.crawler.list_jobs()
+
+    # ------------------------------------------------------------- analyzer
+
+    @app.get("/api/analyze")
+    def analyze(host: str = ""):
+        return analyzer.analyze_history(ctx.history, host=host)
+
+    # --------------------------------------------------------------- sca
+
+    @app.post("/api/sca")
+    async def sca_scan(body: ScaReq):
+        try:
+            if body.path:
+                packages = sca.parse_path(body.path)
+            else:
+                packages = sca.parse_any(body.filename or "requirements.txt",
+                                         body.text or "")
+        except FileNotFoundError as exc:
+            raise HTTPException(404, str(exc))
+        try:
+            findings = await sca.query_osv(packages)
+        except Exception as exc:
+            raise HTTPException(502, f"OSV lookup failed: {exc}")
+        return {
+            "packages": packages,
+            "findings": findings,
+            "sbom": sca.cyclonedx(packages, findings),
+        }
+
+    # ------------------------------------------------------------- openapi
+
+    @app.post("/api/openapi")
+    def openapi_import(body: OpenApiReq):
+        try:
+            items = openapi.parse_spec(body.spec, base_url=body.base_url)
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+        recorded = 0
+        if body.record:
+            for fl in openapi.flows_from_spec(body.spec, base_url=body.base_url):
+                ctx.history.record(fl)
+                recorded += 1
+        return {"endpoints": items, "recorded": recorded}
+
     # ------------------------------------------------------------- status
 
     @app.get("/api/status")
@@ -501,6 +798,10 @@ def create_app(ctx) -> FastAPI:
             "intercept_held": len(ctx.intercept._held),
             "browser": ctx.browser.status(),
             "upstream": ctx.upstream.public(),
+            "events": ctx.events.count(),
+            "oast": ctx.oast.public().get("listening"),
+            "ws": len(ctx.proxy.ws_log),
+            "http2": True,
         }
 
     # --------------------------------------------------------------- UI

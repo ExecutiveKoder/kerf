@@ -3,114 +3,243 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DastDay</title>
+<title>SureGuard</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+(function(){
+  var t = localStorage.getItem('dd-theme') || 'auto';
+  document.documentElement.setAttribute('data-theme', t);
+  var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-scheme', dark ? 'dark' : 'light');
+})();
+</script>
 <style>
   :root {
-    /* instrument-panel ground, not hacker-black */
-    --ground: #121827;
-    --surface: #1a2234;
-    --surface-2: #212c42;
+    --ground: #0e131f;
+    --ground-2: #0b0f18;
+    --surface: #161d2d;
+    --surface-2: #1d2639;
+    --surface-3: #243046;
     --line: #2b3755;
-    --line-soft: #222d45;
-    --ink: #e8edf7;
+    --line-soft: #202a40;
+    --ink: #eaeff8;
     --ink-dim: #9aa7c2;
-    --ink-faint: #64718f;
-    --accent: #e8a04f;         /* amber — interactive only */
+    --ink-faint: #637091;
+    --accent: #f0a850;
+    --accent-2: #ffbe6b;
     --accent-ink: #1a1205;
-    /* HTTP semantic signal colors = the information itself */
     --m-get: #5fb0e8; --m-post: #7dd3a8; --m-put: #d8b36a;
     --m-del: #e8807f; --m-other: #b79ae0;
     --s2: #6fcf97; --s3: #6aa8e8; --s4: #e0b25a; --s5: #e8807f;
-    --sev-high: #e8807f; --sev-med: #e0b25a; --sev-low: #6aa8e8; --sev-info: #7e8aa6;
+    --sev-high: #ef6f6c; --sev-med: #e4b24f; --sev-low: #6aa8e8; --sev-info: #7e8aa6;
+    --ok: #6fcf97; --warn: #e4b24f; --bad: #ef6f6c;
     --ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+    --shadow: 0 8px 28px rgba(0,0,0,.35);
+    --glow: rgba(240,168,80,.08);
+    --glow-2: rgba(106,168,232,.06);
+  }
+  html[data-theme="light"] .work,
+  html[data-theme="auto"][data-scheme="light"] .work {
+    --ground: #f3f5f9;
+    --ground-2: #e8ecf4;
+    --surface: #ffffff;
+    --surface-2: #f7f8fc;
+    --surface-3: #eef1f8;
+    --line: #d5dbe8;
+    --line-soft: #e4e8f0;
+    --ink: #1a2234;
+    --ink-dim: #5b6681;
+    --ink-faint: #8893a8;
+    --accent: #c47d22;
+    --accent-2: #e09a3e;
+    --accent-ink: #fff8ee;
+    --ok: #2f9e66; --warn: #b8860b; --bad: #c44543;
+    --shadow: 0 8px 24px rgba(26,34,52,.08);
+    --glow: rgba(196,125,34,.07);
+    --glow-2: rgba(61,123,196,.05);
+    color: var(--ink);
+    background: var(--ground);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    margin: 0; background: var(--ground); color: var(--ink);
+    margin: 0; color: var(--ink);
+    background:
+      radial-gradient(1200px 500px at 80% -10%, var(--glow), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, var(--glow-2), transparent 60%),
+      var(--ground);
     font-family: var(--ui); font-size: 13px; line-height: 1.5;
-    display: grid; grid-template-columns: 208px 1fr; grid-template-rows: 1fr 26px;
+    display: grid; grid-template-columns: 224px 1fr; grid-template-rows: 1fr 28px;
     grid-template-areas: "rail work" "rail status"; height: 100vh; overflow: hidden;
   }
 
   /* ---------------- left rail ---------------- */
-  .rail { grid-area: rail; background: var(--surface); border-right: 1px solid var(--line);
-          display: flex; flex-direction: column; min-height: 0; }
-  .brand { padding: 18px 18px 14px; border-bottom: 1px solid var(--line-soft); }
-  .brand .name { font-weight: 700; font-size: 15px; letter-spacing: -0.2px; }
-  .brand .name b { color: var(--accent); font-weight: 700; }
-  .brand .sub { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
-                margin-top: 3px; letter-spacing: 0.3px; }
-  .nav { padding: 10px 8px; overflow-y: auto; flex: 1; }
-  .nav .group { font-size: 10.5px; font-weight: 600; color: var(--ink-faint);
-                padding: 12px 10px 5px; letter-spacing: 0.4px; }
-  .nav button { display: flex; align-items: center; gap: 10px; width: 100%;
+  .rail {
+    --ground: #0e131f;
+    --ground-2: #0b0f18;
+    --surface: #161d2d;
+    --surface-2: #1d2639;
+    --surface-3: #243046;
+    --line: #2b3755;
+    --line-soft: #202a40;
+    --ink: #eaeff8;
+    --ink-dim: #9aa7c2;
+    --ink-faint: #637091;
+    --accent: #f0a850;
+    --accent-2: #ffbe6b;
+    --accent-ink: #1a1205;
+    grid-area: rail; color: var(--ink);
+    background: linear-gradient(180deg, var(--surface), var(--ground-2));
+    border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0;
+  }
+  .brand { padding: 20px 20px 16px; border-bottom: 1px solid var(--line-soft); }
+  .brand .name { font-weight: 700; font-size: 17px; letter-spacing: -0.3px; display:flex; align-items:center; gap:10px; }
+  .brand .logo-img { width:28px; height:28px; border-radius:8px; box-shadow:0 2px 10px rgba(240,168,80,.35); }
+  .brand .sub { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+                margin-top: 6px; letter-spacing: 0.4px; text-transform: uppercase; }
+  .nav { padding: 10px 10px 16px; overflow-y: auto; flex: 1; }
+  .nav .group { font-size: 10px; font-weight: 700; color: var(--ink-faint);
+                padding: 14px 10px 6px; letter-spacing: 0.8px; text-transform: uppercase; }
+  .nav button { display: flex; align-items: center; gap: 11px; width: 100%;
                 background: none; border: none; color: var(--ink-dim); cursor: pointer;
-                padding: 8px 10px; border-radius: 7px; font-family: var(--ui);
-                font-size: 13px; text-align: left; transition: background .12s, color .12s; }
+                padding: 9px 11px; border-radius: 9px; font-family: var(--ui);
+                font-size: 13px; text-align: left; transition: background .14s, color .14s; position: relative; }
   .nav button:hover { background: var(--surface-2); color: var(--ink); }
-  .nav button.active { background: var(--surface-2); color: var(--ink); }
+  .nav button.active { background: var(--surface-3); color: var(--ink); }
   .nav button.active .ic { color: var(--accent); }
-  .nav .ic { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
-  .nav button.active { position: relative; }
-  .nav button.active::before { content:""; position:absolute; left:-8px; top:6px; bottom:6px;
-                width:3px; border-radius:0 3px 3px 0; background: var(--accent); }
+  .nav button.active::before { content:""; position:absolute; left:-10px; top:7px; bottom:7px;
+                width:3px; border-radius:0 3px 3px 0; background: linear-gradient(var(--accent),var(--accent-2)); }
+  .nav .ic { width: 17px; height: 17px; flex: none; color: var(--ink-faint); }
   .nav .tag { margin-left: auto; font-family: var(--mono); font-size: 10px;
-              color: var(--ink-faint); background: var(--ground); padding: 1px 6px;
+              color: var(--ink-dim); background: var(--ground); padding: 1px 7px;
               border-radius: 10px; border: 1px solid var(--line-soft); }
+  .nav .tag.hot { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight:700; }
 
   /* ---------------- work area ---------------- */
   .work { grid-area: work; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .workbar { display:flex; align-items:center; justify-content:flex-start; gap:10px;
+             padding: 8px 16px 0; flex: none; }
+  .work-row { flex: 1; min-height: 0; display: flex; }
+  .work-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .seg-toggle { display:flex; background: var(--surface); border: 1px solid var(--line);
+                border-radius: 9px; padding: 2px; gap: 2px; }
+  .seg-toggle button { font-family: var(--ui); font-size: 11px; font-weight: 600;
+                       border: none; background: transparent; color: var(--ink-dim);
+                       padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+  .seg-toggle button.on { background: var(--surface-3); color: var(--ink); }
+  .ai-chip { display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600;
+             border: 1px solid var(--line); background: var(--surface); color: var(--ink-dim);
+             border-radius: 9px; padding: 5px 11px; cursor: pointer; font-family: var(--ui); }
+  .ai-chip:hover { border-color: var(--ink-faint); color: var(--ink); }
+  .ai-chip.on { border-color: var(--accent); color: var(--ink); }
+  .ai-dot { width:7px; height:7px; border-radius:50%; background: var(--ink-faint); }
+  .ai-dot.ready { background: var(--ok); }
+  .assistant { width: 0; overflow: hidden; border-left: 0; background: var(--surface);
+               display: flex; flex-direction: column; min-height: 0; transition: width .18s ease; }
+  .assistant.open { width: 380px; border-left: 1px solid var(--line); }
+  .assistant .ah { padding: 14px 14px 10px; border-bottom: 1px solid var(--line-soft);
+                   display:flex; align-items:flex-start; gap:10px; }
+  .assistant .ah h2 { margin:0; font-size:14px; font-weight:700; }
+  .assistant .ah p { margin:3px 0 0; font-size:11.5px; color: var(--ink-dim); }
+  .assistant .log { flex:1; overflow:auto; padding: 12px 14px; display:flex; flex-direction:column; gap:10px; }
+  .bubble { max-width: 100%; border-radius: 11px; padding: 9px 12px; font-size: 12.5px; line-height:1.5; }
+  .bubble.user { background: var(--surface-3); align-self: flex-end; }
+  .bubble.bot { background: var(--ground); border: 1px solid var(--line); align-self: flex-start; }
+  .bubble .via { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-bottom: 4px; }
+  .bubble .acts { margin-top: 8px; display:flex; flex-wrap:wrap; gap:5px; }
+  .bubble .acts span { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 6px;
+                       background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-dim); }
+  .assistant .composer { padding: 10px 12px 14px; border-top: 1px solid var(--line-soft); }
+  .assistant .composer textarea { min-height: 64px; resize: none; }
   .view { display: none; flex: 1; min-height: 0; flex-direction: column; }
   .view.active { display: flex; }
-  .viewhead { padding: 16px 20px 12px; border-bottom: 1px solid var(--line-soft); }
-  .viewhead h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
-  .viewhead p { margin: 3px 0 0; color: var(--ink-dim); font-size: 12.5px; max-width: 70ch; }
-  .viewbody { padding: 16px 20px; overflow: auto; flex: 1; min-height: 0; }
+  .viewhead { padding: 18px 24px 14px; border-bottom: 1px solid var(--line-soft);
+              display:flex; align-items:flex-start; gap:16px; }
+  .viewhead .ht { flex:1; min-width:0; }
+  .viewhead h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .viewhead p { margin: 4px 0 0; color: var(--ink-dim); font-size: 12.5px; max-width: 78ch; }
+  .viewhead .ha { display:flex; gap:8px; flex-wrap:wrap; }
+  .viewbody { padding: 18px 24px; overflow: auto; flex: 1; min-height: 0; }
+  .page-tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:18px; }
+  .page-tabs button { font-family:var(--ui); font-size:13px; font-weight:600; border:0;
+                      background:none; color:var(--ink-dim); padding:8px 14px 10px;
+                      cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .page-tabs button:hover { color:var(--ink); }
+  .page-tabs button.on { color:var(--ink); border-bottom-color:var(--accent); }
+  .setup-pane { display:none; }
+  .setup-pane.on { display:block; }
 
-  /* toolbar + controls */
-  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .toolbar { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
   input, select, textarea {
     background: var(--ground); color: var(--ink); border: 1px solid var(--line);
-    border-radius: 7px; padding: 7px 10px; font-family: var(--mono); font-size: 12px;
-    outline: none; transition: border-color .12s, box-shadow .12s; }
+    border-radius: 8px; padding: 8px 11px; font-family: var(--mono); font-size: 12px;
+    outline: none; transition: border-color .14s, box-shadow .14s; }
   input:focus, select:focus, textarea:focus {
-    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,160,79,.14); }
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240,168,80,.16); }
   input::placeholder { color: var(--ink-faint); }
   textarea { width: 100%; resize: vertical; line-height: 1.55; }
-  label.fld { display: block; font-size: 11px; font-weight: 500; color: var(--ink-dim);
-              margin: 0 0 6px; letter-spacing: 0.2px; }
-  button.btn { font-family: var(--ui); font-size: 12.5px; font-weight: 500; cursor: pointer;
-               border-radius: 7px; padding: 7px 14px; border: 1px solid var(--line);
-               background: var(--surface-2); color: var(--ink); transition: all .12s; }
-  button.btn:hover { border-color: var(--ink-faint); }
-  button.btn.primary { background: var(--accent); color: var(--accent-ink);
-                       border-color: var(--accent); font-weight: 600; }
-  button.btn.primary:hover { filter: brightness(1.07); }
+  label.fld { display: block; font-size: 11px; font-weight: 600; color: var(--ink-dim);
+              margin: 0 0 7px; letter-spacing: 0.2px; }
+  button.btn { font-family: var(--ui); font-size: 12.5px; font-weight: 600; cursor: pointer;
+               border-radius: 8px; padding: 8px 15px; border: 1px solid var(--line);
+               background: var(--surface-2); color: var(--ink); transition: all .14s; }
+  button.btn:hover { border-color: var(--ink-faint); background: var(--surface-3); }
+  button.btn.primary { background: linear-gradient(135deg,var(--accent),var(--accent-2)); color: var(--accent-ink);
+                       border-color: var(--accent); font-weight: 700; }
+  button.btn.primary:hover { filter: brightness(1.06); }
+  button.btn.danger { color: var(--bad); border-color: rgba(239,111,108,.4); }
+  button.btn.danger:hover { background: rgba(239,111,108,.12); }
+  button.btn:disabled { opacity: .45; cursor: not-allowed; }
+  button.btn.sm { padding: 5px 10px; font-size: 11.5px; }
 
-  /* ---------------- history split ---------------- */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+          padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 4px; font-size: 13.5px; font-weight: 700; }
+  .card .sub { color: var(--ink-dim); font-size: 12px; margin-bottom: 12px; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* history split */
+  .hist { display: grid; grid-template-columns: 220px 1fr; flex: 1; min-height: 0;
+          border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .sitemap { min-width: 0; min-height: 0; display: flex; flex-direction: column;
+             background: var(--surface); border-right: 1px solid var(--line); }
+  .sm-host, .sm-path { display: flex; align-items: center; gap: 8px; width: 100%;
+                       border: 0; background: none; color: var(--ink); cursor: pointer;
+                       font-family: var(--ui); text-align: left; }
+  .sm-host { padding: 8px 10px; font-size: 12px; font-weight: 600; }
+  .sm-path { padding: 3px 10px 3px 18px; font-size: 11px; font-family: var(--mono); color: var(--ink-dim); }
+  .sm-host:hover, .sm-path:hover, .sm-host.on, .sm-path.on { background: rgba(240,168,80,.1); color: var(--ink); }
+  .sm-n { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-dim); white-space: nowrap; }
+  .chk input { width: auto; accent-color: var(--accent); }
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; flex: 1; min-height: 0;
-           border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+           border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .hist .split { border: 0; border-radius: 0; box-shadow: none; }
   .split > .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .split > .pane + .pane { border-left: 1px solid var(--line); }
-  .pane-head { padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--ink-dim);
-               background: var(--surface); border-bottom: 1px solid var(--line-soft);
-               display: flex; align-items: center; gap: 8px; }
+  .ix-item { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+             cursor: pointer; background: var(--surface-2); margin: 0 8px 6px; }
+  .ix-item.on { border-color: var(--accent); background: rgba(240,168,80,.1); }
+  .job { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+         margin-bottom: 8px; background: var(--surface-2); }
+  .pane-head { padding: 9px 13px; font-size: 11px; font-weight: 700; color: var(--ink-dim);
+               background: var(--surface-2); border-bottom: 1px solid var(--line-soft);
+               display: flex; align-items: center; gap: 8px; letter-spacing:.3px; }
   .pane-scroll { overflow: auto; flex: 1; min-height: 0; }
 
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  thead th { position: sticky; top: 0; z-index: 1; background: var(--surface);
-             text-align: left; font-weight: 600; font-size: 10.5px; color: var(--ink-faint);
-             letter-spacing: 0.3px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-  tbody td { padding: 7px 10px; border-bottom: 1px solid var(--line-soft);
+  thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-2);
+             text-align: left; font-weight: 700; font-size: 10px; color: var(--ink-faint);
+             letter-spacing: 0.5px; padding: 9px 11px; border-bottom: 1px solid var(--line); text-transform: uppercase; }
+  tbody td { padding: 7px 11px; border-bottom: 1px solid var(--line-soft);
              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 1px; }
   tbody tr { cursor: pointer; }
-  tbody tr:hover td { background: rgba(232,160,79,.06); }
-  tbody tr.sel td { background: rgba(232,160,79,.11); }
+  tbody tr:hover td { background: rgba(240,168,80,.06); }
+  tbody tr.sel td { background: rgba(240,168,80,.12); }
   td.mono, .mono { font-family: var(--mono); }
   td.num { color: var(--ink-faint); font-family: var(--mono); width: 34px; }
 
@@ -121,121 +250,155 @@
   .status { font-family: var(--mono); font-weight: 700; }
   .status.s2 { color: var(--s2); } .status.s3 { color: var(--s3); }
   .status.s4 { color: var(--s4); } .status.s5 { color: var(--s5); }
-  .dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px;
-         vertical-align: middle; }
 
-  /* raw request/response viewer */
   .raw { font-family: var(--mono); font-size: 11.5px; line-height: 1.6; white-space: pre-wrap;
-         word-break: break-word; padding: 12px 14px; margin: 0; color: var(--ink); }
+         word-break: break-word; padding: 12px 15px; margin: 0; color: var(--ink); }
   .raw .hl-line1 { color: var(--accent); }
   .raw .hl-hdr { color: var(--m-get); }
-  .empty { color: var(--ink-faint); font-style: normal; padding: 20px 14px;
-           font-family: var(--ui); font-size: 12.5px; }
+  .empty { color: var(--ink-faint); padding: 20px 15px; font-family: var(--ui); font-size: 12.5px; }
 
-  /* two-column tool layout */
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .field-out { background: var(--ground); border: 1px solid var(--line); border-radius: 8px;
-               padding: 12px 14px; font-family: var(--mono); font-size: 12px;
+  .field-out { background: var(--ground); border: 1px solid var(--line); border-radius: 9px;
+               padding: 12px 15px; font-family: var(--mono); font-size: 12px;
                white-space: pre-wrap; word-break: break-word; min-height: 160px; color: var(--ink); }
   .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim); }
 
   /* findings */
-  .finding { border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px;
-             padding: 12px 14px; margin-bottom: 10px; background: var(--surface); }
+  .finding { border: 1px solid var(--line); border-left-width: 3px; border-radius: 10px;
+             padding: 14px 16px; margin-bottom: 11px; background: var(--surface); box-shadow: var(--shadow); }
   .finding.high { border-left-color: var(--sev-high); }
   .finding.medium { border-left-color: var(--sev-med); }
   .finding.low { border-left-color: var(--sev-low); }
   .finding.info { border-left-color: var(--sev-info); }
-  .finding .ft { display: flex; align-items: center; gap: 10px; }
-  .finding .sev { font-family: var(--mono); font-size: 10px; font-weight: 700;
-                  padding: 2px 8px; border-radius: 5px; letter-spacing: 0.5px; }
-  .sev.high { background: rgba(232,128,127,.16); color: var(--sev-high); }
-  .sev.medium { background: rgba(224,178,90,.16); color: var(--sev-med); }
+  .finding .ft { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sev { font-family: var(--mono); font-size: 10px; font-weight: 700;
+         padding: 3px 9px; border-radius: 6px; letter-spacing: 0.6px; }
+  .sev.high { background: rgba(239,111,108,.16); color: var(--sev-high); }
+  .sev.medium { background: rgba(228,178,79,.16); color: var(--sev-med); }
   .sev.low { background: rgba(106,168,232,.16); color: var(--sev-low); }
   .sev.info { background: rgba(126,138,166,.16); color: var(--sev-info); }
-  .finding .title { font-weight: 600; font-size: 13px; }
-  .finding .check { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
-  .finding .detail { color: var(--ink-dim); font-size: 12.5px; margin-top: 5px; }
-  .finding .url { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 5px; }
+  .conf { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+          border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
+  .finding .title { font-weight: 700; font-size: 13.5px; }
+  .finding .check { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-left: auto; }
+  .finding .detail { color: var(--ink-dim); font-size: 12.5px; margin-top: 6px; }
+  .finding .url { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 6px; word-break: break-all; }
+  .finding .kv { margin-top: 8px; display: grid; gap: 3px; font-size: 12px; }
+  .finding .kv code { font-family: var(--mono); background: var(--ground); padding: 1px 6px; border-radius: 5px; color: var(--accent-2); }
+  .finding .rem { margin-top: 10px; padding: 10px 12px; background: rgba(111,207,151,.07);
+                  border: 1px solid rgba(111,207,151,.18); border-radius: 8px; font-size: 12.5px; color: var(--ink-dim); }
 
-  /* severity summary chips */
-  .sevbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-  .sevchip { display: flex; align-items: center; gap: 7px; background: var(--surface);
-             border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; }
-  .sevchip .n { font-family: var(--mono); font-weight: 700; font-size: 15px; }
-  .sevchip .l { font-size: 11px; color: var(--ink-dim); }
+  .sevbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .sevchip { display: flex; align-items: center; gap: 9px; background: var(--surface);
+             border: 1px solid var(--line); border-radius: 10px; padding: 9px 14px; box-shadow: var(--shadow); }
+  .sevchip .n { font-family: var(--mono); font-weight: 700; font-size: 17px; }
+  .sevchip .l { font-size: 11px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .4px; }
 
-  /* notice block */
-  .notice { border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px;
-            font-size: 12.5px; color: var(--ink-dim); margin-bottom: 14px; background: var(--surface); }
-  .notice.hold { border-color: rgba(232,128,127,.4); }
-  .notice b { color: var(--ink); font-weight: 600; }
+  .notice { border: 1px solid var(--line); border-radius: 10px; padding: 12px 15px;
+            font-size: 12.5px; color: var(--ink-dim); margin-bottom: 15px; background: var(--surface); }
+  .notice.hold { border-color: rgba(239,111,108,.35); background: rgba(239,111,108,.05); }
+  .notice.ok { border-color: rgba(111,207,151,.35); background: rgba(111,207,151,.06); }
+  .notice b { color: var(--ink); font-weight: 700; }
   .notice code { font-family: var(--mono); color: var(--accent); font-size: 11.5px; }
 
+  .banner { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:10px;
+            margin-bottom:16px; font-size:13px; border:1px solid var(--line); }
+  .banner .btn { margin-left: auto; flex: none; }
+  .switch { position: relative; width: 42px; height: 24px; flex: none; display: inline-block; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch i { position: absolute; inset: 0; background: var(--surface-3); border: 1px solid var(--line);
+              border-radius: 99px; cursor: pointer; transition: background .15s, border-color .15s; }
+  .switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+                     border-radius: 50%; background: var(--ink-dim); transition: transform .15s, background .15s; }
+  .switch input:checked + i { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + i::after { transform: translateX(18px); background: var(--accent-ink); }
+  input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--accent); box-shadow: none; }
+  .banner.locked { background: rgba(239,111,108,.08); border-color: rgba(239,111,108,.35); }
+  .banner.armed { background: rgba(111,207,151,.08); border-color: rgba(111,207,151,.4); }
+  .banner .state { font-family:var(--mono); font-weight:700; font-size:11px; padding:3px 10px; border-radius:7px; letter-spacing:.5px; }
+  .banner.locked .state { background: rgba(239,111,108,.18); color: var(--bad); }
+  .banner.armed .state { background: rgba(111,207,151,.18); color: var(--ok); }
+
+  .chiplist { display:flex; gap:7px; flex-wrap:wrap; }
+  .pill { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:20px;
+          background: var(--surface-2); border:1px solid var(--line); color: var(--ink-dim); }
+
   .diff .ins { color: var(--m-post); background: rgba(125,211,168,.12); border-radius: 3px; }
-  .diff .del { color: var(--m-del); background: rgba(232,128,127,.12);
-               text-decoration: line-through; border-radius: 3px; }
+  .diff .del { color: var(--m-del); background: rgba(232,128,127,.12); text-decoration: line-through; border-radius: 3px; }
   .diff { font-family: var(--mono); font-size: 12px; line-height: 1.7; }
 
-  /* steps / setup */
-  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; max-width: 64ch; }
-  .steps li { counter-increment: s; position: relative; padding: 10px 0 10px 40px;
+  /* progress */
+  .progress { height: 8px; background: var(--ground); border-radius: 6px; overflow: hidden; border:1px solid var(--line); }
+  .progress > span { display:block; height:100%; width:0; background: linear-gradient(90deg,var(--accent),var(--accent-2)); transition: width .3s; }
+
+  /* payload picker */
+  .pick { display:grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap:8px; }
+  .pick label { display:flex; gap:8px; align-items:flex-start; background:var(--surface-2); border:1px solid var(--line);
+                border-radius:9px; padding:9px 11px; cursor:pointer; font-size:12px; }
+  .pick label:hover { border-color: var(--ink-faint); }
+  .pick input { width:auto; }
+  .pick .pn { font-weight:600; color:var(--ink); }
+  .pick .pd { color:var(--ink-faint); font-size:11px; }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; max-width: 66ch; }
+  .steps li { counter-increment: s; position: relative; padding: 12px 0 12px 42px;
               border-bottom: 1px solid var(--line-soft); color: var(--ink-dim); font-size: 13px; }
-  .steps li::before { content: counter(s); position: absolute; left: 0; top: 10px;
-              width: 24px; height: 24px; border-radius: 7px; background: var(--surface-2);
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 11px;
+              width: 26px; height: 26px; border-radius: 8px; background: var(--surface-3);
               border: 1px solid var(--line); color: var(--ink); font-family: var(--mono);
               font-size: 12px; font-weight: 700; display: grid; place-items: center; }
   .steps li b { color: var(--ink); }
 
-  .kpi { display: inline-flex; gap: 5px; align-items: baseline; }
-  .kpi .v { font-family: var(--mono); font-weight: 700; }
-
-  /* ---------------- status strip ---------------- */
-  .statusbar { grid-area: status; background: var(--surface); border-top: 1px solid var(--line);
-               display: flex; align-items: center; gap: 16px; padding: 0 14px;
+  /* status strip */
+  .statusbar { grid-area: status; background: var(--ground-2); border-top: 1px solid var(--line);
+               display: flex; align-items: center; gap: 18px; padding: 0 16px;
                font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
-  .statusbar .live { color: var(--m-post); }
   .statusbar .seg { display: flex; align-items: center; gap: 6px; }
   .statusbar .seg .lbl { color: var(--ink-faint); }
+  .statusbar .live { color: var(--ok); }
   .statusbar .right { margin-left: auto; color: var(--ink-faint); }
-  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--m-post);
-           box-shadow: 0 0 0 0 rgba(125,211,168,.6); animation: pulse 2.4s infinite; }
-  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(125,211,168,.5)} 70%{box-shadow:0 0 0 7px rgba(125,211,168,0)} 100%{box-shadow:0 0 0 0 rgba(125,211,168,0)} }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+           box-shadow: 0 0 0 0 rgba(111,207,151,.6); animation: pulse 2.4s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(111,207,151,.5)} 70%{box-shadow:0 0 0 7px rgba(111,207,151,0)} 100%{box-shadow:0 0 0 0 rgba(111,207,151,0)} }
 
-  @media (max-width: 760px) {
-    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr 26px;
+  @media (max-width: 820px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr 28px;
            grid-template-areas: "rail" "work" "status"; }
     .rail { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--line); }
     .brand { display: none; }
     .nav { display: flex; padding: 6px; }
     .nav .group { display: none; }
     .nav button.active::before { display: none; }
-    .split, .cols { grid-template-columns: 1fr; }
-    .split > .pane + .pane { border-left: none; border-top: 1px solid var(--line); }
+    .split, .cols, .grid2, .hist { grid-template-columns: 1fr; }
+    .assistant.open { width: 100%; position:absolute; inset:0; z-index:5; }
+    .work { position: relative; }
   }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; border: 2px solid var(--surface); }
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; border: 3px solid var(--ground-2); }
   ::-webkit-scrollbar-track { background: transparent; }
 </style>
 </head>
 <body>
-  <!-- ======================= LEFT RAIL ======================= -->
   <aside class="rail">
     <div class="brand">
-      <div class="name">Dast<b>·</b>Day</div>
-      <div class="sub">dynamic app security proxy</div>
+      <div class="name"><img class="logo-img" src="/static/logo.svg" alt="">SureGuard</div>
+      <div class="sub">authorized web security</div>
     </div>
     <nav class="nav" id="nav">
-      <div class="group">TRAFFIC</div>
+      <div class="group">Traffic</div>
       <button data-v="history" class="active">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
         Proxy history <span class="tag" id="nav-flows">0</span>
+      </button>
+      <button data-v="intercept">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Intercept <span class="tag" id="nav-held">0</span>
       </button>
       <button data-v="repeater">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
         Repeater
       </button>
-      <div class="group">ANALYZE</div>
+      <div class="group">Analyze</div>
       <button data-v="decoder">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
         Decoder
@@ -248,48 +411,95 @@
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg>
         Sequencer
       </button>
-      <div class="group">SECURITY</div>
+      <div class="group">Scan &amp; attack</div>
       <button data-v="findings">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>
         Findings <span class="tag" id="nav-findings">0</span>
       </button>
       <button data-v="active">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="4"/></svg>
-        Active scan
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+        Active scan <span class="tag" id="nav-active">0</span>
+      </button>
+      <button data-v="intruder">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22v-4M4 12H2M22 12h-6M6 6l-2-2M20 20l-4-4"/><circle cx="12" cy="12" r="3"/></svg>
+        Intruder
+      </button>
+      <div class="group">Session</div>
+      <button data-v="projects">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Projects
+      </button>
+      <button data-v="reports">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+        Reports
       </button>
       <button data-v="scope">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
         Scope
       </button>
-      <div class="group">SETUP</div>
+      <div class="group">Setup</div>
       <button data-v="setup">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L14.5 2h-5l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5L2.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h5l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5c.1-.3.1-.7.1-1z"/></svg>
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H7a1.6 1.6 0 0 0 1-1.5V1a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V7a1.6 1.6 0 0 0 1.5 1H23a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
         Setup
       </button>
     </nav>
   </aside>
 
-  <!-- ======================= WORK ======================= -->
   <main class="work">
+    <div class="workbar">
+      <button class="btn primary" id="br-open" onclick="openBrowser()" title="Isolated Chromium, already using the proxy">Open browser</button>
+      <span class="meta" id="br-msg"></span>
+      <div style="flex:1"></div>
+      <div class="seg-toggle" id="theme-toggle" title="Theme">
+        <button data-theme="auto">Auto</button>
+        <button data-theme="dark">Dark</button>
+        <button data-theme="light">Light</button>
+      </div>
+      <button class="ai-chip" id="ai-chip" onclick="toggleAssistant()">
+        <span class="ai-dot" id="ai-dot"></span>
+        <span id="ai-chip-label">Assistant</span>
+      </button>
+    </div>
+    <div class="work-row">
+    <div class="work-main">
     <!-- HISTORY -->
     <section class="view active" id="view-history">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Proxy history</h1>
-        <p>Every request routed through the proxy, in order. Select a row to inspect the raw exchange.</p>
-      </div>
+        <p>Every request routed through the proxy. Filter noise, pick a host from the sitemap, then send a request to Repeater, Active scan, or Intruder.</p>
+      </div></div>
       <div class="viewbody" style="display:flex; flex-direction:column;">
         <div class="toolbar">
-          <input id="h-search" placeholder="search url or body" style="width:240px">
-          <input id="h-host" placeholder="host" style="width:150px">
+          <input id="h-search" placeholder="search url or body" style="width:200px">
+          <input id="h-host" placeholder="host" style="width:130px">
           <select id="h-method">
             <option value="">any method</option>
             <option>GET</option><option>POST</option><option>PUT</option>
             <option>DELETE</option><option>PATCH</option>
           </select>
+          <select id="h-status">
+            <option value="">any status</option>
+            <option value="2">2xx</option>
+            <option value="3">3xx</option>
+            <option value="4">4xx</option>
+            <option value="5">5xx</option>
+          </select>
+          <select id="h-mime">
+            <option value="">any type</option>
+            <option value="html">html</option>
+            <option value="json">json</option>
+            <option value="xml">xml</option>
+          </select>
+          <label class="chk"><input type="checkbox" id="h-noise" checked> hide noise</label>
           <button class="btn" onclick="loadHistory()">Refresh</button>
-          <button class="btn" onclick="clearHistory()">Clear</button>
+          <button class="btn danger" onclick="clearHistory()">Clear</button>
         </div>
-        <div class="split">
+        <div class="hist">
+          <div class="sitemap">
+            <div class="pane-head">Sitemap</div>
+            <div class="pane-scroll" id="sm-tree"></div>
+          </div>
+          <div class="split">
           <div class="pane">
             <div class="pane-head">Requests</div>
             <div class="pane-scroll">
@@ -305,16 +515,58 @@
               <div class="empty">Select a request to see its raw bytes.</div>
             </div>
           </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERCEPT -->
+    <section class="view" id="view-intercept">
+      <div class="viewhead"><div class="ht">
+        <h1>Intercept</h1>
+        <p>Click Open browser for an isolated Chromium already pointed at the proxy. Turn intercept on, browse, then edit / forward / drop. Your everyday Chrome is not touched.</p>
+      </div></div>
+      <div class="viewbody" style="display:flex; flex-direction:column;">
+        <div id="ix-banner" class="banner locked">
+          <span class="state">OFF</span>
+          <span id="ix-banner-text">Intercept is off. Turn it on to pause in-scope requests.</span>
+          <button type="button" class="btn primary" id="ix-toggle" onclick="toggleIntercept()">Turn on</button>
+        </div>
+        <div class="toolbar">
+          <input type="checkbox" id="ix-on" hidden>
+          <label class="chk" title="Pause requests"><span class="switch"><input type="checkbox" id="ix-req" checked onchange="saveIntercept()"><i></i></span> hold requests</label>
+          <label class="chk" title="Pause responses"><span class="switch"><input type="checkbox" id="ix-resp" onchange="saveIntercept()"><i></i></span> hold responses</label>
+          <button class="btn" onclick="forwardAllHeld()">Forward all</button>
+          <button class="btn danger" onclick="dropAllHeld()">Drop all</button>
+          <span class="meta" id="ix-meta"></span>
+        </div>
+        <div class="split">
+          <div class="pane">
+            <div class="pane-head">Held</div>
+            <div class="pane-scroll" id="ix-queue">
+              <div class="empty">Nothing held. Turn intercept on and browse an in-scope host.</div>
+            </div>
+          </div>
+          <div class="pane">
+            <div class="pane-head" id="ix-head">Editor</div>
+            <div class="pane-scroll" style="display:flex; flex-direction:column;">
+              <textarea id="ix-raw" style="flex:1; min-height:240px; border:0; border-radius:0" placeholder="Select a held request to edit it."></textarea>
+              <div style="padding:10px 14px; display:flex; gap:8px; border-top:1px solid var(--line-soft)">
+                <button class="btn primary" onclick="forwardHeld()">Forward</button>
+                <button class="btn danger" onclick="dropHeld()">Drop</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- REPEATER -->
     <section class="view" id="view-repeater">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Repeater</h1>
-        <p>Edit one request and send it again. Use it to probe how a target responds to small changes, on systems you are authorized to test.</p>
-      </div>
+        <p>Edit one request and send it again. Probe how a target responds to small changes, on systems you are authorized to test.</p>
+      </div></div>
       <div class="viewbody">
         <div class="toolbar">
           <select id="r-scheme"><option>https</option><option>http</option></select>
@@ -322,29 +574,26 @@
           <span class="meta" id="r-meta"></span>
         </div>
         <div class="cols">
-          <div>
-            <label class="fld">Request</label>
-            <textarea id="r-req" style="min-height:300px">GET / HTTP/1.1
+          <div><label class="fld">Request</label>
+            <textarea id="r-req" style="min-height:320px">GET / HTTP/1.1
 Host: example.com
-User-Agent: DastDay
-Accept: */*
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.168.1.5 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.9
 
-</textarea>
-          </div>
-          <div>
-            <label class="fld">Response</label>
-            <pre class="field-out" id="r-resp" style="min-height:300px"></pre>
-          </div>
+</textarea></div>
+          <div><label class="fld">Response</label>
+            <pre class="field-out" id="r-resp" style="min-height:320px"></pre></div>
         </div>
       </div>
     </section>
 
     <!-- DECODER -->
     <section class="view" id="view-decoder">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Decoder</h1>
         <p>Transform selected data between the encodings you meet in web traffic.</p>
-      </div>
+      </div></div>
       <div class="viewbody">
         <div class="toolbar">
           <select id="d-transform">
@@ -362,26 +611,26 @@ Accept: */*
           <button class="btn" onclick="smartDecode()">Smart decode</button>
         </div>
         <div class="cols">
-          <div><label class="fld">Input</label><textarea id="d-in" style="min-height:180px"></textarea></div>
-          <div><label class="fld">Output</label><pre class="field-out" id="d-out" style="min-height:180px"></pre></div>
+          <div><label class="fld">Input</label><textarea id="d-in" style="min-height:190px"></textarea></div>
+          <div><label class="fld">Output</label><pre class="field-out" id="d-out" style="min-height:190px"></pre></div>
         </div>
       </div>
     </section>
 
     <!-- COMPARER -->
     <section class="view" id="view-comparer">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Comparer</h1>
         <p>Diff two requests or responses to see exactly what changed between them.</p>
-      </div>
+      </div></div>
       <div class="viewbody">
         <div class="toolbar">
           <button class="btn primary" onclick="runCompare()">Compare</button>
           <span class="meta" id="c-stats"></span>
         </div>
         <div class="cols">
-          <div><label class="fld">A</label><textarea id="c-a" style="min-height:180px"></textarea></div>
-          <div><label class="fld">B</label><textarea id="c-b" style="min-height:180px"></textarea></div>
+          <div><label class="fld">A</label><textarea id="c-a" style="min-height:190px"></textarea></div>
+          <div><label class="fld">B</label><textarea id="c-b" style="min-height:190px"></textarea></div>
         </div>
         <label class="fld" style="margin-top:14px">Word diff</label>
         <div class="field-out diff" id="c-diff" style="min-height:60px"></div>
@@ -390,14 +639,14 @@ Accept: */*
 
     <!-- SEQUENCER -->
     <section class="view" id="view-sequencer">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Sequencer</h1>
         <p>Measure the randomness of tokens you have already captured (session IDs, reset tokens). Analysis only, nothing is sent.</p>
-      </div>
+      </div></div>
       <div class="viewbody">
         <div class="toolbar"><button class="btn primary" onclick="runSeq()">Analyze</button></div>
         <label class="fld">Samples, one per line</label>
-        <textarea id="q-in" style="min-height:170px"></textarea>
+        <textarea id="q-in" style="min-height:180px"></textarea>
         <label class="fld" style="margin-top:14px">Result</label>
         <pre class="field-out" id="q-out" style="min-height:120px"></pre>
       </div>
@@ -405,10 +654,10 @@ Accept: */*
 
     <!-- FINDINGS -->
     <section class="view" id="view-findings">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Findings</h1>
         <p>Passive analysis of traffic that already passed through the proxy. No requests are sent and no payloads are injected.</p>
-      </div>
+      </div></div>
       <div class="viewbody">
         <div class="sevbar" id="sevbar"></div>
         <div class="toolbar"><button class="btn" onclick="loadFindings()">Refresh</button></div>
@@ -418,41 +667,184 @@ Accept: */*
 
     <!-- ACTIVE SCAN -->
     <section class="view" id="view-active">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Active scan</h1>
-        <p>The engine that drives operator-supplied active checks against an authorized scope.</p>
-      </div>
+        <p>Automated detection of SQLi, XSS, SSRF, command injection, path traversal, and access-control bypass. It sends crafted requests, so it only runs against hosts you authorize.</p>
+      </div></div>
       <div class="viewbody">
-        <div class="notice hold">
-          <b>No active checks are loaded.</b> This build ships the active-scan engine without any
-          attack payloads. Active scanning sends crafted requests to probe for vulnerabilities, which
-          behaves the same against a system you own and one you do not, so the checks are left to you to
-          supply for targets you are authorized to test.
+        <div id="as-banner" class="banner locked"><span class="state">LOCKED</span>
+          <span id="as-banner-text">No authorized scope. Authorize the host(s) you are allowed to test to arm the scanner.</span></div>
+
+        <div class="card">
+          <h3>Authorization</h3>
+          <div class="sub">The engine refuses to run until you assert you are authorized to actively test these hosts.</div>
+          <label class="fld">Authorized hosts, one per line</label>
+          <textarea id="as-hosts" style="min-height:80px" placeholder="example.com"></textarea>
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn primary" onclick="authorizeActive()">Arm scanner</button>
+            <button class="btn danger" onclick="revokeActive()">Revoke</button>
+            <span class="meta" id="as-authmsg"></span>
+          </div>
         </div>
-        <div class="notice">
-          To enable it: write an <code>ActiveCheck</code>, drop it in <code>extensions/</code>, and
-          assert an authorized scope with <code>authorize_scope({...})</code>. The engine refuses to run
-          on an empty scope. See <code>docs/WRITING_ACTIVE_CHECKS.md</code>.
+
+        <div class="card">
+          <h3>Checks loaded</h3>
+          <div class="chiplist" id="as-checks" style="margin-top:8px"></div>
         </div>
-        <div class="sevbar">
-          <div class="sevchip"><span class="n" id="as-checks">0</span><span class="l">checks loaded</span></div>
-          <div class="sevchip"><span class="n" id="as-scope">0</span><span class="l">hosts in scope</span></div>
-          <div class="sevchip"><span class="n" style="color:var(--sev-high)">off</span><span class="l">engine state</span></div>
+
+        <div class="card">
+          <h3>Scan a host</h3>
+          <div class="sub">Queues captured in-scope history for that host (noise hidden) and scans each distinct request. Progress updates live.</div>
+          <div class="toolbar">
+            <input id="as-job-host" placeholder="example.com" style="width:220px">
+            <button class="btn primary" id="as-job-run" onclick="startHostScan()">Scan host</button>
+            <span class="meta" id="as-job-msg"></span>
+          </div>
+          <div id="as-jobs" style="margin-top:12px"></div>
         </div>
-        <label class="fld">Insertion points discovered on the selected request (inert preview)</label>
-        <pre class="field-out" id="as-points" style="min-height:90px"><span class="empty" style="padding:0">Select a request in Proxy history to list its parameters.</span></pre>
+
+        <div class="card">
+          <h3>Scan one request</h3>
+          <div class="sub">Pick a request in Proxy history, then scan it. Its insertion points (query, form, cookie) are probed with the bundled checks.</div>
+          <div class="toolbar">
+            <span class="meta" id="as-target">No request selected. Choose one in Proxy history.</span>
+          </div>
+          <label class="fld">Insertion points (preview)</label>
+          <pre class="field-out" id="as-points" style="min-height:80px"><span class="empty" style="padding:0">Select a request to list its parameters.</span></pre>
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn" id="as-discover" onclick="discoverPoints()" disabled>Discover insertion points</button>
+            <button class="btn primary" id="as-run" onclick="runActiveScan()" disabled>Run active scan</button>
+            <button class="btn danger" onclick="clearActive()">Clear findings</button>
+            <span class="meta" id="as-runmsg"></span>
+          </div>
+        </div>
+
+        <div class="sevbar" id="as-sevbar" style="margin-top:4px"></div>
+        <div id="as-findings"></div>
+      </div>
+    </section>
+
+    <!-- INTRUDER -->
+    <section class="view" id="view-intruder">
+      <div class="viewhead"><div class="ht">
+        <h1>Intruder</h1>
+        <p>Automated, payload-driven attacks. Mark positions with <code class="mono" style="color:var(--accent)">§</code> markers, choose payloads, and fire at full concurrency. Shares the active scan's authorized scope.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="grid2">
+          <div>
+            <div class="card">
+              <h3>Request template</h3>
+              <div class="sub">Wrap each value you want to fuzz in § markers, e.g. <code class="mono">id=§1§</code>.</div>
+              <div class="toolbar">
+                <select id="i-scheme"><option>https</option><option>http</option></select>
+                <button class="btn sm" onclick="wrapMarker()">Wrap selection in §</button>
+                <button class="btn sm" onclick="fromHistoryToIntruder()">Load selected history request</button>
+              </div>
+              <textarea id="i-template" style="min-height:230px">GET /search?q=§test§ HTTP/1.1
+Host: example.com
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/192.168.1.5 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.9
+
+</textarea>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <h3>Attack</h3>
+              <label class="fld">Attack type</label>
+              <select id="i-attack" style="width:100%" onchange="intruderPreview()">
+                <option value="sniper">Sniper — one set, one position at a time</option>
+                <option value="battering-ram">Battering ram — one set, all positions</option>
+                <option value="pitchfork">Pitchfork — one set per position, lockstep</option>
+                <option value="cluster-bomb">Cluster bomb — all combinations</option>
+              </select>
+              <label class="fld" style="margin-top:12px">Payload sets</label>
+              <div class="pick" id="i-sets"></div>
+              <div class="grid2" style="margin-top:12px; gap:12px">
+                <div><label class="fld">Concurrency</label><input id="i-conc" value="20" style="width:100%"></div>
+                <div><label class="fld">Throttle (ms)</label><input id="i-throttle" value="0" style="width:100%"></div>
+              </div>
+              <label class="fld" style="margin-top:12px">Grep — match terms, comma separated</label>
+              <input id="i-grep" style="width:100%" placeholder="error, admin, root:">
+              <div class="toolbar" style="margin-top:14px">
+                <button class="btn primary" onclick="startIntruder()">Start attack</button>
+                <button class="btn danger" onclick="stopIntruder()">Stop</button>
+                <span class="meta" id="i-preview"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="i-runcard" style="display:none">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px">
+            <h3 style="margin:0">Results</h3>
+            <span class="meta" id="i-status"></span>
+            <div class="progress" style="flex:1"><span id="i-bar"></span></div>
+          </div>
+          <div class="pane-scroll" style="max-height:360px; border:1px solid var(--line); border-radius:10px">
+            <table>
+              <thead><tr><th>#</th><th>Payload</th><th>Status</th><th>Length</th><th>Time</th><th>Reflected</th><th>Matches</th></tr></thead>
+              <tbody id="i-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECTS -->
+    <section class="view" id="view-projects">
+      <div class="viewhead"><div class="ht">
+        <h1>Projects</h1>
+        <p>Save the current session — history, scope, and findings — and resume it later. Projects are stored as portable files on disk.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="card">
+          <h3>Save current session</h3>
+          <div class="toolbar">
+            <input id="p-name" placeholder="project name" style="width:220px">
+            <input id="p-note" placeholder="note (optional)" style="width:280px">
+            <button class="btn primary" onclick="saveProject()">Save project</button>
+            <span class="meta" id="p-msg"></span>
+          </div>
+        </div>
+        <div class="toolbar"><button class="btn" onclick="loadProjects()">Refresh</button>
+          <span class="meta" id="p-current"></span></div>
+        <div id="p-list"></div>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="view" id="view-reports">
+      <div class="viewhead"><div class="ht">
+        <h1>Reports</h1>
+        <p>Generate a self-contained report of all findings for the current session.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="sevbar" id="rep-sevbar"></div>
+        <div class="card">
+          <h3>Export</h3>
+          <div class="sub">The HTML report is standalone and opens in any browser. JSON is machine-readable for pipelines.</div>
+          <div class="toolbar">
+            <button class="btn primary" onclick="window.open('/api/report?format=html','_blank')">Open HTML report</button>
+            <button class="btn" onclick="downloadReport()">Download HTML</button>
+            <button class="btn" onclick="window.open('/api/report?format=json','_blank')">View JSON</button>
+            <button class="btn" onclick="loadReportSummary()">Refresh</button>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- SCOPE -->
     <section class="view" id="view-scope">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Scope</h1>
-        <p>Limit which hosts get deep processing. A tight scope is how you avoid touching anything you should not.</p>
-      </div>
+        <p>Limit which hosts get deep passive processing. A tight scope keeps you focused on what you should be touching.</p>
+      </div></div>
       <div class="viewbody">
         <label class="fld">In-scope hosts, one per line</label>
-        <textarea id="s-hosts" style="min-height:140px"></textarea>
+        <textarea id="s-hosts" style="min-height:150px"></textarea>
         <div class="toolbar" style="margin-top:12px">
           <button class="btn primary" onclick="saveScope()">Save scope</button>
           <span class="meta" id="s-msg"></span>
@@ -462,48 +854,182 @@ Accept: */*
 
     <!-- SETUP -->
     <section class="view" id="view-setup">
-      <div class="viewhead">
+      <div class="viewhead"><div class="ht">
         <h1>Setup</h1>
-        <p>Four steps to route your browser through the proxy. Only on a machine you control.</p>
-      </div>
+        <p>Certificates, AI, and an optional outbound hop (Tor or another proxy). Only on a machine you control.</p>
+      </div></div>
       <div class="viewbody">
-        <ol class="steps">
-          <li><b>Download the CA.</b> <button class="btn" onclick="downloadCA()">Download CA certificate</button></li>
-          <li><b>Trust it.</b> Install the certificate in your browser or OS trust store.</li>
-          <li><b>Point your proxy</b> at <code class="mono" id="setup-proxy">127.0.0.1:8080</code>.</li>
-          <li><b>Browse.</b> Traffic appears under Proxy history as it flows.</li>
-        </ol>
-        <div class="notice hold" style="margin-top:16px">
-          Intercept only on systems you own or are authorized to test. The CA affects only browsers
-          that trust it, which means your own.
+        <div class="page-tabs" id="setup-tabs">
+          <button class="on" data-tab="certs" onclick="setupTab('certs')">Certificates</button>
+          <button data-tab="ai" onclick="setupTab('ai')">AI models</button>
+          <button data-tab="outbound" onclick="setupTab('outbound')">Outbound / Tor</button>
+        </div>
+
+        <div class="setup-pane on" id="setup-certs">
+          <ol class="steps">
+            <li><b>Open the SureGuard browser.</b> <button class="btn sm primary" onclick="openBrowser()">Open browser</button>
+              <span class="meta" id="setup-br-msg"></span><br>
+              Isolated Chromium, already using <code class="mono" id="setup-proxy">127.0.0.1:8080</code>.</li>
+            <li><b>Download the CA</b> if you want HTTPS to validate in a browser you configure yourself.
+              <button class="btn sm" onclick="downloadCA()">Download CA certificate</button>
+              The SureGuard browser already ignores the intercept cert, so this is optional there.</li>
+            <li><b>Trust it</b> in that browser or OS trust store. The CA only affects clients that install it — your own machine.</li>
+            <li><b>Turn Intercept on</b> when you want to hold a request, then browse in the SureGuard window.</li>
+          </ol>
+          <div class="notice hold" style="margin-top:16px">
+            Intercept and scan only on systems you own or are authorized to test. The CA cannot intercept anyone else's traffic.
+          </div>
+        </div>
+
+        <div class="setup-pane" id="setup-ai">
+          <div class="card">
+            <h3>AI models</h3>
+            <div class="sub">Connect a local model, a frontier API, or OpenRouter. Keys stay on this machine in <code class="mono">~/.dastday/assistant.json</code>.</div>
+            <div class="grid2">
+              <div>
+                <label class="fld">Provider</label>
+                <select id="ai-provider" style="width:100%" onchange="onProviderChange()"></select>
+              </div>
+              <div>
+                <label class="fld">Model</label>
+                <select id="ai-model" style="width:100%" onchange="onModelChange()">
+                  <option value="">Connect to load models</option>
+                </select>
+              </div>
+            </div>
+            <label class="fld" style="margin-top:12px">Base URL <span class="meta" id="ai-hint"></span></label>
+            <input id="ai-base" style="width:100%" placeholder="https://… or http://127.0.0.1:11434/v1">
+            <label class="fld" style="margin-top:12px">API key</label>
+            <input id="ai-key" type="password" style="width:100%" placeholder="leave blank for local models" autocomplete="off">
+            <div class="toolbar" style="margin-top:14px">
+              <button class="btn primary" onclick="saveAssistant()">Save connection</button>
+              <button class="btn" onclick="testAssistant()">Test</button>
+              <button class="btn" onclick="loadAssistantModels()">Refresh models</button>
+              <span class="meta" id="ai-msg"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-pane" id="setup-outbound">
+          <div class="card">
+            <h3>Outbound proxy</h3>
+            <div class="sub">After SureGuard intercepts a request, send it out through Tor or another proxy. Direct is the default. Start Tor yourself — SureGuard does not bundle it.</div>
+            <div id="up-banner" class="banner locked" style="margin-top:4px"><span class="state">DIRECT</span>
+              <span id="up-banner-text">No outbound hop. Traffic leaves this machine normally.</span></div>
+            <label class="fld">Preset</label>
+            <select id="up-preset" style="width:100%" onchange="onUpstreamPreset()">
+              <option value="direct">Direct — no outbound proxy</option>
+              <option value="tor">Tor (SOCKS5 · 127.0.0.1:9050)</option>
+              <option value="tor-browser">Tor Browser (SOCKS5 · 127.0.0.1:9150)</option>
+              <option value="custom">Custom HTTP or SOCKS5</option>
+            </select>
+            <div class="grid2" style="margin-top:12px">
+              <div>
+                <label class="fld">Type</label>
+                <select id="up-kind" style="width:100%">
+                  <option value="direct">Direct</option>
+                  <option value="socks5">SOCKS5</option>
+                  <option value="http">HTTP CONNECT</option>
+                </select>
+              </div>
+              <div>
+                <label class="chk" style="margin-top:26px"><input type="checkbox" id="up-on"> send traffic through this hop</label>
+              </div>
+            </div>
+            <div class="grid2" style="margin-top:12px">
+              <div><label class="fld">Host</label><input id="up-host" style="width:100%" placeholder="127.0.0.1"></div>
+              <div><label class="fld">Port</label><input id="up-port" style="width:100%" placeholder="9050"></div>
+            </div>
+            <div class="grid2" style="margin-top:12px">
+              <div><label class="fld">Username (optional)</label><input id="up-user" style="width:100%" autocomplete="off"></div>
+              <div><label class="fld">Password (optional)</label><input id="up-pass" type="password" style="width:100%" autocomplete="off"></div>
+            </div>
+            <div class="toolbar" style="margin-top:14px">
+              <button class="btn primary" onclick="saveUpstream()">Save</button>
+              <button class="btn" onclick="testUpstream()">Test hop</button>
+              <span class="meta" id="up-msg"></span>
+            </div>
+            <div class="notice" style="margin-top:14px">
+              Tor: install and start the Tor service, or open Tor Browser, then pick the matching preset and Save.
+              Repeater, Intruder, and active scan use this hop too. Only use it on systems you are authorized to test.
+            </div>
+          </div>
         </div>
       </div>
     </section>
+    </div><!-- work-main -->
+
+    <aside class="assistant" id="assistant">
+      <div class="ah">
+        <div style="flex:1">
+          <h2>Assistant</h2>
+          <p id="ai-side-meta">Not connected — simple commands still work.</p>
+        </div>
+        <button class="btn sm" onclick="resetAssistant()">Clear</button>
+        <button class="btn sm" onclick="toggleAssistant()">Close</button>
+      </div>
+      <div class="log" id="ai-log">
+        <div class="bubble bot">
+          Tell me what to do and I’ll open the right screen and run it.
+          Try <b>scan example.com</b>, <b>intercept on</b>,
+          <b>send the last request to repeater</b>, or <b>save project demo</b>.
+          Connect a model under Setup for full natural language.
+        </div>
+      </div>
+      <div class="composer">
+        <textarea id="ai-input" placeholder="What should I do?" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAssistant();}"></textarea>
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn primary" onclick="sendAssistant()">Send</button>
+          <span class="meta" id="ai-busy"></span>
+        </div>
+      </div>
+    </aside>
+    </div><!-- work-row -->
   </main>
 
-  <!-- ======================= STATUS STRIP ======================= -->
   <footer class="statusbar">
     <div class="seg"><span class="pulse"></span><span class="live" id="sb-state">listening</span></div>
     <div class="seg"><span class="lbl">proxy</span><span id="sb-proxy">127.0.0.1:8080</span></div>
     <div class="seg"><span class="lbl">flows</span><span id="sb-flows">0</span></div>
-    <div class="seg"><span class="lbl">findings</span><span id="sb-findings">0</span></div>
-    <div class="seg"><span class="lbl">ext</span><span id="sb-ext">none</span></div>
-    <div class="right" id="sb-right">DastDay</div>
+    <div class="seg"><span class="lbl">passive</span><span id="sb-findings">0</span></div>
+    <div class="seg"><span class="lbl">active</span><span id="sb-active">0</span></div>
+    <div class="seg"><span class="lbl">scanner</span><span id="sb-armed">locked</span></div>
+    <div class="seg"><span class="lbl">intercept</span><span id="sb-ix">off</span></div>
+    <div class="seg"><span class="lbl">out</span><span id="sb-up">direct</span></div>
+    <div class="right" id="sb-right">SureGuard</div>
   </footer>
 
 <script>
 const $ = s => document.querySelector(s);
-let flows = [], currentFlow = null;
+let flows = [], currentFlow = null, intruderTimer = null, currentAttack = null;
+let currentHold = null, hPath = '', smHost = '', jobTimer = null;
 
-// ---- navigation ----
-document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('#nav button').forEach(x => x.classList.remove('active'));
-  document.querySelectorAll('.view').forEach(x => x.classList.remove('active'));
-  b.classList.add('active');
-  $('#view-' + b.dataset.v).classList.add('active');
-  if (b.dataset.v === 'findings') loadFindings();
-  if (b.dataset.v === 'scope') loadScope();
-  if (b.dataset.v === 'active') loadActive();
+function gotoScreen(v) {
+  document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('active', x.dataset.v === v));
+  document.querySelectorAll('.view').forEach(x => x.classList.toggle('active', x.id === 'view-' + v));
+  if (v === 'history') { loadSitemap(); loadHistory(); }
+  if (v === 'intercept') loadIntercept();
+  if (v === 'findings') loadFindings();
+  if (v === 'scope') loadScope();
+  if (v === 'active') { loadActive(); loadScanJobs(); }
+  if (v === 'intruder') loadIntruder();
+  if (v === 'projects') loadProjects();
+  if (v === 'reports') loadReportSummary();
+  if (v === 'setup') { loadAssistantSettings(); loadUpstream(); }
+}
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => gotoScreen(b.dataset.v));
+
+function applyTheme(t) {
+  localStorage.setItem('dd-theme', t);
+  document.documentElement.setAttribute('data-theme', t);
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-scheme', dark ? 'dark' : 'light');
+  document.querySelectorAll('#theme-toggle button').forEach(b => b.classList.toggle('on', b.dataset.theme === t));
+}
+document.querySelectorAll('#theme-toggle button').forEach(b => b.onclick = () => applyTheme(b.dataset.theme));
+applyTheme(localStorage.getItem('dd-theme') || 'auto');
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  applyTheme(localStorage.getItem('dd-theme') || 'auto');
 });
 
 async function api(path, opts) {
@@ -511,13 +1037,12 @@ async function api(path, opts) {
   if (!r.ok) throw new Error((await r.json().catch(()=>({detail:r.statusText}))).detail);
   return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
 }
-
 function methodClass(m){ return ['GET','POST','PUT','PATCH','DELETE'].includes(m) ? m : 'other'; }
 function statusClass(s){ return s ? 's'+String(s)[0] : ''; }
 function fmtSize(n){ if(n==null) return ''; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
 function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmtTime(ts){ return ts ? new Date(ts*1000).toLocaleString() : ''; }
 
-// render raw HTTP with the start line + header names lightly colored
 function renderRaw(text){
   const lines = escapeHtml(text).split(/\r?\n/);
   let out = [], inBody = false;
@@ -538,17 +1063,65 @@ async function refreshStatus() {
     $('#sb-proxy').textContent = s.proxy;
     $('#sb-flows').textContent = s.flows;
     $('#sb-findings').textContent = s.findings;
-    $('#sb-ext').textContent = s.extensions.join(', ') || 'none';
+    $('#sb-active').textContent = s.active_findings;
+    $('#sb-armed').textContent = s.active_authorized ? 'armed' : 'locked';
+    $('#sb-armed').style.color = s.active_authorized ? 'var(--ok)' : 'var(--bad)';
     $('#nav-flows').textContent = s.flows;
     $('#nav-findings').textContent = s.findings;
+    const na = $('#nav-active'); na.textContent = s.active_findings;
+    na.classList.toggle('hot', s.active_findings > 0);
     $('#setup-proxy').textContent = s.proxy;
+    $('#sb-right').textContent = s.project ? ('project: ' + s.project) : 'SureGuard';
     $('#sb-state').textContent = 'listening';
+    if (s.browser && s.browser.running) {
+      const m = $('#br-msg'); if (m && !m.textContent) m.textContent = 'browser open';
+    }
+    const up = s.upstream || {};
+    const el = $('#sb-up');
+    if (el) {
+      el.textContent = up.active ? ((up.kind || 'proxy') + ' ' + (up.host||'') + ':' + (up.port||'')) : 'direct';
+      el.style.color = up.active ? 'var(--ok)' : '';
+    }
+    const held = s.intercept_held || 0;
+    const nh = $('#nav-held'); if (nh) { nh.textContent = held; nh.classList.toggle('hot', s.intercept_on && held > 0); }
+    const ix = $('#sb-ix'); if (ix) ix.textContent = s.intercept_on ? (held ? ('hold ' + held) : 'on') : 'off';
+    updateAssistantChip(s.assistant);
+    if (s.intercept_on && document.querySelector('#view-intercept.active')) loadIntercept();
   } catch(e) { $('#sb-state').textContent = 'offline'; }
 }
 
 // ---- history ----
+async function loadSitemap() {
+  try {
+    const tree = await api('/api/sitemap');
+    const el = $('#sm-tree');
+    if (!el) return;
+    if (!tree.length) { el.innerHTML = '<div class="empty">No hosts yet.</div>'; return; }
+    el.innerHTML = tree.map(h => {
+      const on = smHost === h.host ? ' on' : '';
+      const hostEnc = encodeURIComponent(h.host);
+      const paths = (h.paths || []).slice(0, 40).map(p =>
+        `<button class="sm-path${hPath===p.path&&smHost===h.host?' on':''}" onclick="pickSite(decodeURIComponent('${hostEnc}'),decodeURIComponent('${encodeURIComponent(p.path)}'))">
+           <span>${escapeHtml(p.path || '/')}</span><span class="sm-n">${p.count}</span></button>`
+      ).join('');
+      return `<button class="sm-host${on}" onclick="pickSite(decodeURIComponent('${hostEnc}'),'')">
+        <span>${escapeHtml(h.host)}</span><span class="sm-n">${h.count}</span></button>${paths}`;
+    }).join('');
+  } catch(e) {}
+}
+function pickSite(host, path) {
+  smHost = host; hPath = path || '';
+  $('#h-host').value = host;
+  loadSitemap(); loadHistory();
+}
 async function loadHistory() {
-  const q = new URLSearchParams({ search:$('#h-search').value, host:$('#h-host').value, method:$('#h-method').value });
+  const q = new URLSearchParams({
+    search: $('#h-search').value, host: $('#h-host').value, method: $('#h-method').value,
+  });
+  if ($('#h-mime') && $('#h-mime').value) q.set('mime', $('#h-mime').value);
+  if ($('#h-noise') && $('#h-noise').checked) q.set('hide_noise', 'true');
+  if ($('#h-status') && $('#h-status').value) q.set('status_class', $('#h-status').value);
+  if (hPath) q.set('path', hPath);
   flows = await api('/api/history?' + q);
   const tb = $('#h-rows'); tb.innerHTML = '';
   if (!flows.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty">No traffic yet. Point your browser at the proxy and browse.</div></td></tr>'; return; }
@@ -573,7 +1146,11 @@ async function showFlow(id) {
      <pre class="raw">${renderRaw(f.req_raw)}</pre>
      <div class="pane-head" style="background:transparent;border:0;padding:10px 14px 2px">RESPONSE</div>
      <pre class="raw">${renderRaw(f.resp_raw)}</pre>
-     <div style="padding:10px 14px"><button class="btn" onclick="toRepeater()">Send to Repeater</button></div>`;
+     <div style="padding:10px 14px; display:flex; gap:8px; flex-wrap:wrap">
+       <button class="btn sm" onclick="toRepeater()">Send to Repeater</button>
+       <button class="btn sm" onclick="toActive()">Send to Active scan</button>
+       <button class="btn sm" onclick="toIntruder()">Send to Intruder</button>
+     </div>`;
 }
 async function clearHistory() {
   if (!confirm('Clear all captured history?')) return;
@@ -583,6 +1160,12 @@ function toRepeater() {
   if (!currentFlow) return;
   $('#r-req').value = currentFlow.req_raw;
   document.querySelector('#nav button[data-v="repeater"]').click();
+}
+function toActive(){ if(!currentFlow) return; document.querySelector('#nav button[data-v="active"]').click(); }
+function toIntruder(){
+  if(!currentFlow) return;
+  document.querySelector('#nav button[data-v="intruder"]').click();
+  $('#i-template').value = currentFlow.req_raw;
 }
 
 // ---- repeater ----
@@ -628,13 +1211,16 @@ async function runSeq() {
   $('#q-out').textContent = JSON.stringify(res, null, 2);
 }
 
-// ---- findings ----
+// ---- passive findings ----
+function sevbar(el, counts){
+  el.innerHTML = ['high','medium','low','info'].map(s =>
+    `<div class="sevchip"><span class="n" style="color:var(--sev-${s})">${counts[s]||0}</span><span class="l">${s}</span></div>`).join('');
+}
 async function loadFindings() {
   const fs = await api('/api/findings');
   const counts = {high:0, medium:0, low:0, info:0};
   fs.forEach(f => counts[f.severity] = (counts[f.severity]||0)+1);
-  $('#sevbar').innerHTML = ['high','medium','low','info'].map(s =>
-    `<div class="sevchip"><span class="n" style="color:var(--sev-${s})">${counts[s]||0}</span><span class="l">${s}</span></div>`).join('');
+  sevbar($('#sevbar'), counts);
   $('#f-list').innerHTML = fs.length ? fs.map(f => `
     <div class="finding ${f.severity}">
       <div class="ft"><span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>
@@ -646,19 +1232,328 @@ async function loadFindings() {
 }
 
 // ---- active scan ----
-async function loadActive() {
+let issueLib = {};
+async function loadIssues(){
+  if (Object.keys(issueLib).length) return;
+  try { (await api('/api/issues')).forEach(i => issueLib[i.key] = i); } catch(e){}
+}
+async function loadIntercept() {
   try {
-    const s = await api('/api/status');
-    $('#as-scope').textContent = s.scope.length;
-  } catch(e){}
-  $('#as-checks').textContent = '0';
-  if (currentFlow && currentFlow.req_raw) {
-    // show inert insertion points parsed from the selected request's URL/query
-    const line = currentFlow.req_raw.split(/\r?\n/)[0] || '';
-    const q = (line.split(' ')[1] || '').split('?')[1] || '';
-    const pts = q ? q.split('&').map(p => 'query  ' + p.split('=')[0]) : [];
-    $('#as-points').textContent = pts.length ? pts.join('\n') : 'No query parameters on the selected request.';
+    const s = await api('/api/intercept');
+    $('#ix-on').checked = s.enabled;
+    $('#ix-req').checked = s.hold_requests;
+    $('#ix-resp').checked = s.hold_responses;
+    const banner = $('#ix-banner');
+    banner.className = 'banner ' + (s.enabled ? 'armed' : 'locked');
+    banner.querySelector('.state').textContent = s.enabled ? 'ON' : 'OFF';
+    $('#ix-banner-text').textContent = s.enabled
+      ? ('Holding ' + (s.held||[]).length + ' in-scope item(s). Edit, then forward or drop.')
+      : 'Intercept is off. Turn it on to pause in-scope requests.';
+    const tog = $('#ix-toggle');
+    tog.textContent = s.enabled ? 'Turn off' : 'Turn on';
+    tog.className = 'btn ' + (s.enabled ? 'danger' : 'primary');
+    $('#ix-meta').textContent = (s.held||[]).length + ' held';
+    const q = $('#ix-queue');
+    if (!(s.held||[]).length) {
+      q.innerHTML = s.enabled
+        ? '<div class="empty">Waiting for in-scope traffic. Browse through the proxy — requests will pause here.</div>'
+        : '<div class="empty">Nothing held. Turn intercept on, then browse an in-scope host.</div>';
+      return;
+    }
+    window._held = {};
+    q.innerHTML = s.held.map(h => {
+      window._held[h.id] = h;
+      return `<div class="ix-item${currentHold&&currentHold.id===h.id?' on':''}" data-id="${h.id}" onclick="selectHold('${h.id}')">
+         <span class="method ${methodClass(h.method)}">${escapeHtml(h.method)}</span>
+         <span class="mono"> ${escapeHtml(h.host)}${escapeHtml(h.path)}</span>
+         <div class="meta">${escapeHtml(h.kind)}</div>
+       </div>`;
+    }).join('');
+    if (currentHold && !s.held.some(h => h.id === currentHold.id)) {
+      currentHold = null;
+    }
+  } catch(e) { $('#ix-meta').textContent = e.message; }
+}
+function selectHold(id) {
+  const h = (window._held || {})[id];
+  if (!h) return;
+  currentHold = h;
+  $('#ix-raw').value = h.raw || '';
+  $('#ix-head').textContent = 'Editor · ' + h.method + ' ' + h.host;
+  document.querySelectorAll('.ix-item').forEach(el => el.classList.toggle('on', el.dataset.id === id));
+}
+async function openBrowser() {
+  const ids = ['br-msg', 'setup-br-msg'];
+  const set = (t) => ids.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = t; });
+  set('opening…');
+  try {
+    const r = await api('/api/browser/open', {method:'POST'});
+    if (r.installing) {
+      set('downloading Chromium — click Open browser again in a minute');
+      return;
+    }
+    if (!r.ok) { set(r.error || 'could not open browser'); return; }
+    set(r.opened ? 'SureGuard browser opened' : 'browser already running');
+  } catch(e) { set(e.message); }
+}
+
+async function toggleIntercept() {
+  $('#ix-on').checked = !$('#ix-on').checked;
+  await saveIntercept();
+}
+async function saveIntercept() {
+  await api('/api/intercept', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({enabled:$('#ix-on').checked, hold_requests:$('#ix-req').checked, hold_responses:$('#ix-resp').checked})});
+  loadIntercept(); refreshStatus();
+}
+async function forwardHeld() {
+  if (!currentHold) return;
+  await api('/api/intercept/forward/' + currentHold.id, {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({raw: $('#ix-raw').value})});
+  currentHold = null; $('#ix-raw').value = ''; loadIntercept(); refreshStatus();
+}
+async function dropHeld() {
+  if (!currentHold) return;
+  await api('/api/intercept/drop/' + currentHold.id, {method:'POST'});
+  currentHold = null; $('#ix-raw').value = ''; loadIntercept(); refreshStatus();
+}
+async function forwardAllHeld() { await api('/api/intercept/forward-all', {method:'POST'}); currentHold=null; loadIntercept(); refreshStatus(); }
+async function dropAllHeld() { await api('/api/intercept/drop-all', {method:'POST'}); currentHold=null; loadIntercept(); refreshStatus(); }
+
+async function startHostScan() {
+  const host = ($('#as-job-host').value || (currentFlow && currentFlow.host) || '').trim();
+  if (!host) { $('#as-job-msg').textContent = 'enter a host'; return; }
+  $('#as-job-msg').textContent = 'queuing…';
+  try {
+    const job = await api('/api/active/scan-host', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({host})});
+    $('#as-job-msg').textContent = 'scanning ' + job.total + ' request(s)';
+    pollJobs();
+  } catch(e) { $('#as-job-msg').textContent = e.message; }
+}
+async function loadScanJobs() {
+  try {
+    const jobs = await api('/api/active/jobs');
+    const el = $('#as-jobs');
+    if (!el) return;
+    if (!jobs.length) { el.innerHTML = ''; return; }
+    el.innerHTML = jobs.map(j => {
+      const pct = j.total ? Math.round(100 * (j.completed||0) / j.total) : 0;
+      return `<div class="job">
+        <div style="display:flex;gap:10px;align-items:center">
+          <b>${escapeHtml(j.host)}</b>
+          <span class="meta">${j.status} · ${j.completed||0}/${j.total||0} · ${j.findings||0} finding(s)</span>
+        </div>
+        <div class="progress" style="margin-top:8px"><span style="width:${pct}%"></span></div>
+        ${j.current ? `<div class="meta" style="margin-top:6px">${escapeHtml(j.current)}</div>` : ''}
+        ${j.error ? `<div class="meta" style="color:var(--bad)">${escapeHtml(j.error)}</div>` : ''}
+      </div>`;
+    }).join('');
+    if (jobs.some(j => j.status === 'running')) pollJobs();
+  } catch(e) {}
+}
+function pollJobs() {
+  if (jobTimer) return;
+  jobTimer = setInterval(async () => {
+    await loadScanJobs();
+    const jobs = await api('/api/active/jobs').catch(()=>[]);
+    if (!jobs.some(j => j.status === 'running')) {
+      clearInterval(jobTimer); jobTimer = null;
+      renderActiveFindings(await api('/api/active/findings'));
+      refreshStatus();
+    }
+  }, 900);
+}
+
+async function loadActive() {
+  await loadIssues();
+  const s = await api('/api/active/status');
+  const armed = s.authorized;
+  const banner = $('#as-banner');
+  banner.className = 'banner ' + (armed ? 'armed' : 'locked');
+  banner.querySelector('.state').textContent = armed ? 'ARMED' : 'LOCKED';
+  $('#as-banner-text').textContent = armed
+    ? ('Authorized to actively test: ' + s.scope.join(', '))
+    : 'No authorized scope. Authorize the host(s) you are allowed to test to arm the scanner.';
+  if (!$('#as-hosts').value && s.scope.length) $('#as-hosts').value = s.scope.join('\n');
+  $('#as-checks').innerHTML = s.checks.map(c => `<span class="pill">${escapeHtml(c)}</span>`).join('');
+  $('#as-run').disabled = !(armed && currentFlow);
+  $('#as-discover').disabled = !currentFlow;
+  $('#as-target').textContent = currentFlow
+    ? ('Selected: ' + currentFlow.method + ' ' + currentFlow.host)
+    : 'No request selected. Choose one in Proxy history.';
+  renderActiveFindings(await api('/api/active/findings'));
+}
+async function authorizeActive() {
+  const hosts = $('#as-hosts').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if (!hosts.length) { $('#as-authmsg').textContent = 'enter at least one host'; return; }
+  await api('/api/active/authorize', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({hosts})});
+  $('#as-authmsg').textContent = 'armed'; setTimeout(()=>$('#as-authmsg').textContent='',1500);
+  loadActive(); refreshStatus();
+}
+async function revokeActive() {
+  await api('/api/active/revoke', {method:'POST'});
+  loadActive(); refreshStatus();
+}
+async function discoverPoints() {
+  if (!currentFlow) return;
+  try {
+    const res = await api('/api/active/points?flow_id=' + currentFlow.id);
+    $('#as-points').textContent = res.points.length
+      ? res.points.map(p => `${p.kind.padEnd(10)} ${p.name} = ${p.value}`).join('\n')
+      : 'No query/form/cookie parameters on this request.';
+  } catch(e){ $('#as-points').textContent = 'error: ' + e.message; }
+}
+async function runActiveScan() {
+  if (!currentFlow) return;
+  $('#as-runmsg').textContent = 'scanning… (may take a bit for time-based checks)';
+  $('#as-run').disabled = true;
+  try {
+    const res = await api('/api/active/scan', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({flow_id: currentFlow.id})});
+    $('#as-runmsg').textContent = `done · ${res.findings.length} new finding(s)`;
+    renderActiveFindings(await api('/api/active/findings'));
+    refreshStatus();
+  } catch(e){ $('#as-runmsg').textContent = 'error: ' + e.message; }
+  $('#as-run').disabled = false;
+}
+async function clearActive() {
+  await api('/api/active/findings', {method:'DELETE'});
+  renderActiveFindings([]); refreshStatus();
+}
+function renderActiveFindings(fs){
+  const counts = {high:0, medium:0, low:0, info:0};
+  fs.forEach(f => counts[f.severity] = (counts[f.severity]||0)+1);
+  sevbar($('#as-sevbar'), counts);
+  $('#as-findings').innerHTML = fs.length ? fs.map(f => {
+    const iss = issueLib[f.issue_key];
+    const rem = iss ? `<div class="rem"><b>Remediation.</b> ${escapeHtml(iss.remediation)}</div>` : '';
+    const kv = [];
+    if (f.point) kv.push(`<div>insertion point <code>${escapeHtml(f.point)}</code></div>`);
+    if (f.payload) kv.push(`<div>payload <code>${escapeHtml(f.payload)}</code></div>`);
+    if (f.evidence) kv.push(`<div>evidence <code>${escapeHtml(f.evidence)}</code></div>`);
+    return `<div class="finding ${f.severity}">
+      <div class="ft"><span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>
+        <span class="conf">${escapeHtml(f.confidence||'')}</span>
+        <span class="title">${escapeHtml(f.title)}</span>
+        <span class="check">${escapeHtml(f.check)}</span></div>
+      <div class="detail">${escapeHtml(f.detail)}</div>
+      <div class="url">${escapeHtml(f.url)}</div>
+      <div class="kv">${kv.join('')}</div>${rem}
+    </div>`;
+  }).join('') : '<div class="empty">No active findings yet. Arm the scanner, select a request, and run a scan.</div>';
+}
+
+// ---- intruder ----
+let payloadSets = [];
+async function loadIntruder() {
+  if (!payloadSets.length) {
+    payloadSets = await api('/api/payload-sets');
+    $('#i-sets').innerHTML = payloadSets.map((p,i) => `
+      <label><input type="checkbox" value="${escapeHtml(p.name)}" ${i===0?'checked':''} onchange="intruderPreview()">
+        <span><span class="pn">${escapeHtml(p.name)}</span> <span class="pd">(${p.count})</span><br>
+        <span class="pd">${escapeHtml(p.description)}</span></span></label>`).join('');
   }
+  intruderPreview();
+}
+function selectedSets(){ return [...document.querySelectorAll('#i-sets input:checked')].map(i=>i.value); }
+function wrapMarker() {
+  const ta = $('#i-template'); const s = ta.selectionStart, e = ta.selectionEnd;
+  const v = ta.value;
+  ta.value = v.slice(0,s) + '\u00a7' + v.slice(s,e) + '\u00a7' + v.slice(e);
+  intruderPreview();
+}
+function fromHistoryToIntruder(){ if(currentFlow) $('#i-template').value = currentFlow.req_raw; else $('#i-preview').textContent='select a request in history first'; }
+async function intruderPreview() {
+  try {
+    const res = await api('/api/intruder/preview', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({template:$('#i-template').value, attack_type:$('#i-attack').value, set_names:selectedSets(), custom:null})});
+    if (!res.ok) { $('#i-preview').textContent = res.error; return; }
+    $('#i-preview').textContent = `${res.positions} position(s) · ~${res.estimated_requests} requests`;
+  } catch(e){ $('#i-preview').textContent = e.message; }
+}
+async function startIntruder() {
+  const grep = $('#i-grep').value.split(',').map(s=>s.trim()).filter(Boolean);
+  try {
+    const st = await api('/api/intruder/start', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({template:$('#i-template').value, scheme:$('#i-scheme').value,
+        attack_type:$('#i-attack').value, set_names:selectedSets(), custom:null, grep,
+        concurrency: parseInt($('#i-conc').value)||20, throttle_ms: parseInt($('#i-throttle').value)||0})});
+    currentAttack = st.id;
+    $('#i-runcard').style.display = '';
+    $('#i-rows').innerHTML = '';
+    pollIntruder();
+  } catch(e){ $('#i-preview').textContent = 'error: ' + e.message; }
+}
+async function pollIntruder() {
+  if (intruderTimer) clearInterval(intruderTimer);
+  const tick = async () => {
+    if (!currentAttack) return;
+    const st = await api('/api/intruder/attack/' + currentAttack);
+    const pct = st.total ? Math.round(100*st.completed/st.total) : 0;
+    $('#i-bar').style.width = pct + '%';
+    $('#i-status').textContent = `${st.status} · ${st.completed}/${st.total} · ${st.attack_type}`;
+    renderIntruderRows(st.results);
+    if (st.status !== 'running') { clearInterval(intruderTimer); intruderTimer = null; }
+  };
+  intruderTimer = setInterval(tick, 700); tick();
+}
+function renderIntruderRows(rows){
+  const tb = $('#i-rows');
+  tb.innerHTML = rows.map(r => `<tr>
+    <td class="num">${r.n}</td>
+    <td class="mono" title="${escapeHtml(r.payload)}">${escapeHtml(r.payload)}</td>
+    <td><span class="status ${statusClass(r.status)}">${r.status||'—'}</span></td>
+    <td class="mono">${r.length}</td>
+    <td class="mono">${r.time_ms}</td>
+    <td class="mono">${r.reflected?'<span style="color:var(--warn)">yes</span>':''}</td>
+    <td class="mono" style="color:var(--accent-2)">${r.matches.map(escapeHtml).join(', ')}</td>
+  </tr>`).join('');
+}
+async function stopIntruder(){ if(currentAttack) await api('/api/intruder/stop/'+currentAttack, {method:'POST'}); }
+
+// ---- projects ----
+async function loadProjects() {
+  const res = await api('/api/projects');
+  $('#p-current').textContent = res.current ? ('current: ' + res.current) : 'no project loaded';
+  $('#p-list').innerHTML = res.projects.length ? res.projects.map(p => `
+    <div class="card" style="display:flex; align-items:center; gap:14px">
+      <div style="flex:1; min-width:0">
+        <div style="font-weight:700">${escapeHtml(p.name)} ${p.current?'<span class="pill" style="color:var(--ok)">current</span>':''}</div>
+        <div class="meta">${p.flows} flows · ${p.active_count} active · ${p.passive_count} passive · saved ${fmtTime(p.saved_at)}</div>
+        ${p.note?`<div class="meta" style="margin-top:3px">${escapeHtml(p.note)}</div>`:''}
+      </div>
+      <button class="btn sm primary" onclick="loadProject('${escapeHtml(p.name)}')">Resume</button>
+      <button class="btn sm danger" onclick="deleteProject('${escapeHtml(p.name)}')">Delete</button>
+    </div>`).join('') : '<div class="empty">No saved projects yet.</div>';
+}
+async function saveProject() {
+  const name = $('#p-name').value.trim();
+  if (!name) { $('#p-msg').textContent = 'name required'; return; }
+  try {
+    await api('/api/projects/save', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({name, note:$('#p-note').value})});
+    $('#p-msg').textContent = 'saved'; setTimeout(()=>$('#p-msg').textContent='',1500);
+    loadProjects(); refreshStatus();
+  } catch(e){ $('#p-msg').textContent = 'error: ' + e.message; }
+}
+async function loadProject(name) {
+  const res = await api('/api/projects/load', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({name})});
+  $('#p-current').textContent = `resumed ${name} · imported ${res.imported_flows} flows`;
+  loadProjects(); loadHistory(); refreshStatus();
+}
+async function deleteProject(name) {
+  if (!confirm('Delete project ' + name + '?')) return;
+  await api('/api/projects/delete', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({name})});
+  loadProjects();
+}
+
+// ---- reports ----
+async function loadReportSummary() {
+  const d = await api('/api/report?format=json');
+  sevbar($('#rep-sevbar'), d.totals.by_severity);
+}
+function downloadReport(){
+  const a = document.createElement('a'); a.href = '/api/report?format=html'; a.download = 'sureguard-report.html'; a.click();
 }
 
 // ---- scope ----
@@ -673,10 +1568,281 @@ async function saveScope() {
 async function downloadCA() {
   const pem = await api('/api/ca-cert');
   const blob = new Blob([pem], {type:'application/x-pem-file'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'dastday-ca.pem'; a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sureguard-ca.pem'; a.click();
 }
 
-refreshStatus(); loadHistory(); setInterval(refreshStatus, 4000);
+// ---- assistant ----
+let aiProviders = [], assistantOpen = localStorage.getItem('dd-assistant') === '1';
+
+function toggleAssistant(force) {
+  assistantOpen = (force === true || force === false) ? force : !assistantOpen;
+  localStorage.setItem('dd-assistant', assistantOpen ? '1' : '0');
+  $('#assistant').classList.toggle('open', assistantOpen);
+  $('#ai-chip').classList.toggle('on', assistantOpen);
+}
+if (assistantOpen) toggleAssistant(true);
+
+function updateAssistantChip(s) {
+  if (!s) return;
+  const ready = s.configured;
+  $('#ai-dot').classList.toggle('ready', ready);
+  $('#ai-chip-label').textContent = ready ? (s.provider_label + ' · ' + s.model) : 'Assistant';
+  $('#ai-side-meta').textContent = ready
+    ? (s.provider_label + ' · ' + s.model)
+    : 'Not connected — simple commands still work.';
+}
+
+function fillModelSelect(models, selected) {
+  const sel = $('#ai-model');
+  const list = (models || []).filter(Boolean);
+  const cur = (selected && list.includes(selected)) ? selected : '';
+  if (!list.length) {
+    sel.innerHTML = '<option value="">Connect to load models</option>';
+    sel.value = '';
+    return;
+  }
+  sel.innerHTML = '<option value="">Select a model</option>' +
+    list.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+  sel.value = list.includes(cur) ? cur : '';
+}
+function setupTab(id) {
+  document.querySelectorAll('#setup-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+  document.querySelectorAll('.setup-pane').forEach(p => p.classList.toggle('on', p.id === 'setup-' + id));
+  if (id === 'ai') loadAssistantSettings();
+  if (id === 'outbound') loadUpstream();
+}
+function onUpstreamPreset() {
+  const p = $('#up-preset').value;
+  const map = {
+    direct: {kind:'direct', host:'', port:''},
+    tor: {kind:'socks5', host:'127.0.0.1', port:'9050'},
+    'tor-browser': {kind:'socks5', host:'127.0.0.1', port:'9150'},
+    custom: {kind:$('#up-kind').value === 'direct' ? 'socks5' : $('#up-kind').value, host:$('#up-host').value||'127.0.0.1', port:$('#up-port').value||'9050'},
+  };
+  const m = map[p] || map.custom;
+  $('#up-kind').value = m.kind;
+  if (p !== 'custom') { $('#up-host').value = m.host; $('#up-port').value = m.port; }
+  $('#up-on').checked = p !== 'direct';
+}
+function fillUpstream(s) {
+  $('#up-preset').value = s.preset || 'direct';
+  $('#up-kind').value = s.kind || 'direct';
+  $('#up-host').value = s.host || '';
+  $('#up-port').value = s.port || '';
+  $('#up-user').value = s.username || '';
+  if (!($('#up-pass').value && $('#up-pass').value.includes('•')))
+    $('#up-pass').value = s.password || '';
+  $('#up-on').checked = !!s.enabled;
+  const banner = $('#up-banner');
+  const active = !!s.active;
+  banner.className = 'banner ' + (active ? 'armed' : 'locked');
+  banner.querySelector('.state').textContent = active ? (s.kind || 'ON').toUpperCase() : 'DIRECT';
+  $('#up-banner-text').textContent = active
+    ? ('Leaving through ' + s.kind + ' ' + s.host + ':' + s.port)
+    : 'No outbound hop. Traffic leaves this machine normally.';
+}
+async function loadUpstream() {
+  try { fillUpstream(await api('/api/upstream')); }
+  catch(e) { $('#up-msg').textContent = e.message; }
+}
+async function saveUpstream() {
+  $('#up-msg').textContent = 'saving…';
+  try {
+    const s = await api('/api/upstream', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({
+        enabled: $('#up-on').checked,
+        preset: $('#up-preset').value,
+        kind: $('#up-kind').value,
+        host: $('#up-host').value.trim(),
+        port: parseInt($('#up-port').value, 10) || 0,
+        username: $('#up-user').value.trim(),
+        password: $('#up-pass').value,
+      })});
+    fillUpstream(s);
+    $('#up-msg').textContent = 'saved';
+    setTimeout(()=>$('#up-msg').textContent='',1500);
+    refreshStatus();
+  } catch(e) { $('#up-msg').textContent = e.message; }
+}
+async function testUpstream() {
+  $('#up-msg').textContent = 'testing…';
+  try {
+    await saveUpstream();
+    const r = await api('/api/upstream/test', {method:'POST'});
+    $('#up-msg').textContent = r.detail || (r.ok ? 'ok' : 'failed');
+  } catch(e) { $('#up-msg').textContent = e.message; }
+}
+
+async function loadAssistantSettings() {
+  if (!aiProviders.length) {
+    aiProviders = await api('/api/assistant/providers');
+    $('#ai-provider').innerHTML = aiProviders.map(p =>
+      `<option value="${escapeHtml(p.id)}">${escapeHtml(p.label)}</option>`).join('');
+  }
+  const s = await api('/api/assistant/settings');
+  $('#ai-provider').value = s.provider;
+  $('#ai-base').value = s.base_url;
+  $('#ai-key').value = s.api_key_masked || '';
+  $('#ai-hint').textContent = s.hint || '';
+  fillModelSelect(s.models, s.model);
+  updateAssistantChip(s);
+}
+async function onModelChange() {
+  const model = $('#ai-model').value.trim();
+  const s = await api('/api/assistant/settings', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({model, enabled: !!model})});
+  updateAssistantChip(s);
+}
+function onProviderChange() {
+  const p = aiProviders.find(x => x.id === $('#ai-provider').value);
+  if (!p) return;
+  fillModelSelect([], '');
+  $('#ai-base').value = p.base_url;
+  $('#ai-hint').textContent = p.hint || '';
+  if (!p.needs_key) $('#ai-key').value = '';
+}
+async function saveAssistant() {
+  const key = $('#ai-key').value;
+  const body = {
+    provider: $('#ai-provider').value,
+    model: $('#ai-model').value.trim(),
+    base_url: $('#ai-base').value.trim(),
+    enabled: true,
+  };
+  if (key && !key.includes('••')) body.api_key = key;
+  try {
+    const s = await api('/api/assistant/settings', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
+    $('#ai-key').value = s.api_key_masked || '';
+    $('#ai-msg').textContent = 'saved · loading models…';
+    updateAssistantChip(s);
+    await loadAssistantModels();
+  } catch(e) { $('#ai-msg').textContent = 'error: ' + e.message; }
+}
+async function testAssistant() {
+  const model = $('#ai-model').value.trim();
+  if (!model) { $('#ai-msg').textContent = 'pick a model first'; return; }
+  await api('/api/assistant/settings', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({model, enabled: true})});
+  $('#ai-msg').textContent = 'testing…';
+  const r = await api('/api/assistant/test', {method:'POST'});
+  $('#ai-msg').textContent = r.ok ? ('ok · ' + (r.reply||'')) : ('failed · ' + r.error);
+}
+async function loadAssistantModels() {
+  $('#ai-msg').textContent = 'loading models…';
+  try {
+    const r = await api('/api/assistant/models');
+    const models = r.models || (Array.isArray(r) ? r : []);
+    const keep = $('#ai-model').value;
+    fillModelSelect(models, keep);
+    if (!r.ok && r.error) {
+      $('#ai-msg').textContent = 'could not list models · ' + r.error;
+      return;
+    }
+    $('#ai-msg').textContent = models.length
+      ? (models.length + ' model' + (models.length===1?'':'s') + ' available')
+      : 'no models found';
+    updateAssistantChip(await api('/api/assistant/settings'));
+  } catch(e) { $('#ai-msg').textContent = 'error: ' + e.message; }
+}
+function resetAssistant() {
+  api('/api/assistant/reset', {method:'POST'});
+  $('#ai-log').innerHTML = '<div class="bubble bot">Conversation cleared. What should I do next?</div>';
+}
+async function loadAssistantTranscript() {
+  try {
+    const t = await api('/api/assistant/transcript');
+    const msgs = t.messages || [];
+    if (!msgs.length) return;
+    $('#ai-log').innerHTML = '';
+    msgs.forEach(m => {
+      if (m.role === 'user') addBubble('user', escapeHtml(m.content || ''));
+      else addBubble('bot', escapeHtml(cleanReply(m.content || '')).replace(/\n/g,'<br>'));
+    });
+  } catch(e) {}
+}
+function cleanReply(text) {
+  return (text || '')
+    .replace(/```[\w-]*\n?([\s\S]*?)```/g, '$1')
+    .replace(/```+/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/^[ \t]*[-*]\s+/gm, '• ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+function addBubble(role, html, via, actions) {
+  const d = document.createElement('div');
+  d.className = 'bubble ' + (role === 'user' ? 'user' : 'bot');
+  const acts = (actions||[]).map(a => `<span>${escapeHtml(a.tool)}</span>`).join('');
+  d.innerHTML = (via ? `<div class="via">${escapeHtml(via)}</div>` : '') + html
+    + (acts ? `<div class="acts">${acts}</div>` : '');
+  $('#ai-log').appendChild(d);
+  $('#ai-log').scrollTop = $('#ai-log').scrollHeight;
+}
+async function applyAssistantUI(ui) {
+  if (!ui) return;
+  if (ui.screen) gotoScreen(ui.screen);
+  if (ui.flow_id) {
+    try { await showFlow(ui.flow_id); } catch(e) {}
+    loadHistory();
+  }
+  if (ui.repeater) {
+    if (ui.repeater.raw) $('#r-req').value = ui.repeater.raw;
+    if (ui.repeater.scheme) $('#r-scheme').value = ui.repeater.scheme;
+    if (ui.repeater.response_raw) {
+      $('#r-resp').innerHTML = renderRaw(ui.repeater.response_raw);
+      $('#r-meta').innerHTML = ui.repeater.status != null
+        ? `<span class="status ${statusClass(ui.repeater.status)}">${ui.repeater.status}</span>`
+        : '';
+    }
+  }
+  if (ui.decoder) {
+    if (ui.decoder.value != null) $('#d-in').value = ui.decoder.value;
+    if (ui.decoder.transform) $('#d-transform').value = ui.decoder.transform;
+    if (ui.decoder.result != null) $('#d-out').textContent = ui.decoder.result;
+  }
+  if (ui.comparer) {
+    $('#c-a').value = ui.comparer.a || '';
+    $('#c-b').value = ui.comparer.b || '';
+  }
+  if (ui.sequencer) $('#q-in').value = ui.sequencer.samples || '';
+  if (ui.intruder && ui.intruder.template) $('#i-template').value = ui.intruder.template;
+  if (ui.active_hosts) $('#as-hosts').value = ui.active_hosts.join('\n');
+  if (ui.scan_host && $('#as-job-host')) $('#as-job-host').value = ui.scan_host;
+  if (ui.scope_hosts) $('#s-hosts').value = ui.scope_hosts.join('\n');
+  if (ui.screen === 'active') { loadActive(); loadScanJobs(); }
+  if (ui.screen === 'intercept') loadIntercept();
+  if (ui.screen === 'findings') loadFindings();
+  if (ui.screen === 'projects') loadProjects();
+  if (ui.screen === 'reports') loadReportSummary();
+  refreshStatus();
+}
+async function sendAssistant() {
+  const msg = $('#ai-input').value.trim();
+  if (!msg) return;
+  $('#ai-input').value = '';
+  addBubble('user', escapeHtml(msg));
+  $('#ai-busy').textContent = 'working…';
+  try {
+    const res = await api('/api/assistant/chat', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({message: msg})});
+    addBubble('bot', escapeHtml(cleanReply(res.reply || '')).replace(/\n/g,'<br>'), res.via, res.actions);
+    await applyAssistantUI(res.ui || {});
+  } catch(e) {
+    addBubble('bot', 'error: ' + escapeHtml(e.message));
+  }
+  $('#ai-busy').textContent = '';
+}
+
+['h-search','h-host','h-method','h-status','h-mime','h-noise'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener(id === 'h-search' ? 'keydown' : 'change', (ev) => {
+    if (id === 'h-search' && ev.key !== 'Enter') return;
+    if (id === 'h-host') { smHost = $('#h-host').value; hPath = ''; }
+    loadHistory();
+  });
+});
+refreshStatus(); loadSitemap(); loadHistory(); loadAssistantSettings(); loadAssistantTranscript(); setInterval(refreshStatus, 2500);
 </script>
 </body>
 </html>

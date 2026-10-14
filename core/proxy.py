@@ -36,6 +36,7 @@ class ProxyServer:
         self.port = port
         self.ca = CertificateAuthority()
         self.interceptor = interceptor or Interceptor()
+        self.upstream = None
         self._server: asyncio.AbstractServer | None = None
 
     async def start(self) -> None:
@@ -109,17 +110,17 @@ class ProxyServer:
     async def _write_help(self, writer) -> None:
         body = (
             "<!doctype html><meta charset=utf-8>"
-            "<title>DastDay proxy</title>"
+            "<title>SureGuard proxy</title>"
             "<body style='font-family:system-ui;max-width:640px;margin:48px auto;"
             "color:#1a2234;line-height:1.5'>"
-            "<h2>This is the DastDay proxy port</h2>"
+            "<h2>This is the SureGuard proxy port</h2>"
             "<p>You reached the proxy directly. It's meant to be set as your browser's "
             "<b>HTTP/HTTPS proxy</b>, not opened in the address bar.</p>"
             "<ol><li>Open the <b>web UI</b> on the UI port (default "
             "<code>127.0.0.1:8000</code>).</li>"
             "<li>In your browser/OS network settings, set the HTTP and HTTPS proxy to "
             f"<code>{self.host}:{self.port}</code>.</li>"
-            "<li>Install the DastDay CA from the UI's Setup tab so HTTPS validates.</li>"
+            "<li>Install the SureGuard CA from the UI's Setup tab so HTTPS validates.</li>"
             "<li>Browse normally; traffic appears under Proxy history.</li></ol>"
             "</body>")
         resp = (
@@ -183,21 +184,42 @@ class ProxyServer:
     # ------------------------------------------------------------- upstream
 
     async def _proxy_and_relay(self, req: HttpRequest, writer) -> None:
+        from modules.intercept import FlowDropped
         flow = Flow(request=req)
-        # Let addons mutate/observe the request before it leaves.
-        req = await self.interceptor.on_request(flow)
+        try:
+            req = await self.interceptor.on_request(flow)
+        except FlowDropped:
+            await self._write_dropped(writer, "request")
+            return
 
         started = time.perf_counter()
         resp = await self._send_upstream(req)
         flow.duration_ms = (time.perf_counter() - started) * 1000
         flow.response = resp
 
-        resp = await self.interceptor.on_response(flow)
+        try:
+            resp = await self.interceptor.on_response(flow)
+        except FlowDropped:
+            await self._write_dropped(writer, "response")
+            return
         flow.response = resp
         await self.interceptor.on_flow_complete(flow)
 
         writer.write(resp.raw())
         await writer.drain()
+
+    async def _write_dropped(self, writer, kind: str) -> None:
+        body = f"SureGuard: {kind} dropped by intercept.\n".encode()
+        writer.write(
+            b"HTTP/1.1 403 Forbidden\r\n"
+            b"Content-Type: text/plain; charset=utf-8\r\n"
+            + f"Content-Length: {len(body)}\r\n".encode()
+            + b"Connection: close\r\n\r\n" + body
+        )
+        try:
+            await writer.drain()
+        except Exception:
+            pass
 
     async def _send_upstream(self, req: HttpRequest) -> HttpResponse:
         parts = urlsplit(req.url)
@@ -205,9 +227,9 @@ class ProxyServer:
         if not host:
             return HttpResponse(400, "Bad Request",
                                 [("Content-Type", "text/plain")],
-                                (b"DastDay: no target host in the request. If you are "
+                                (b"SureGuard: no target host in the request. If you are "
                                  b"using Repeater, include a 'Host:' header. If this came "
-                                 b"from a browser, set DastDay as the proxy rather than "
+                                 b"from a browser, set SureGuard as the proxy rather than "
                                  b"connecting to it directly."))
         port = parts.port or (443 if parts.scheme == "https" else 80)
         ssl_ctx = None
@@ -216,11 +238,20 @@ class ProxyServer:
             # We validate upstream normally; this proxy is not a MITM of real CAs.
 
         try:
-            up_reader, up_writer = await asyncio.open_connection(host, port, ssl=ssl_ctx)
+            if self.upstream:
+                up_reader, up_writer = await self.upstream.open(host, port, ssl_ctx=ssl_ctx)
+            else:
+                up_reader, up_writer = await asyncio.open_connection(
+                    host, port, ssl=ssl_ctx,
+                    server_hostname=host if ssl_ctx else None)
         except (OSError, ssl.SSLError) as exc:
             return HttpResponse(502, "Bad Gateway",
                                 [("Content-Type", "text/plain")],
-                                f"DastDay upstream error: {exc}".encode())
+                                f"SureGuard upstream error: {exc}".encode())
+        except Exception as exc:
+            return HttpResponse(502, "Bad Gateway",
+                                [("Content-Type", "text/plain")],
+                                f"SureGuard outbound proxy error: {exc}".encode())
 
         # Force no compression/keep-alive we can't handle, keep it simple+correct.
         req.set_header("Accept-Encoding", "identity")

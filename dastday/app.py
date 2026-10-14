@@ -17,6 +17,12 @@ from modules.history import HistoryStore
 from modules.passive_scanner import PassiveScanner
 from modules.repeater import Repeater
 from modules.active_scan import ActiveScanEngine
+from modules.intruder import IntruderEngine
+from modules.projects import ProjectManager
+from modules.assistant import Assistant
+from modules.intercept import InterceptQueue
+from modules.browser import EmbeddedBrowser
+from modules.upstream import UpstreamRoute
 from modules.extensions import ExtensionAPI, ExtensionManager
 from ui.server import create_app
 
@@ -29,11 +35,18 @@ class AppContext:
     passive: PassiveScanner
     repeater: Repeater
     active: ActiveScanEngine
+    intruder: IntruderEngine
+    projects: ProjectManager
+    assistant: Assistant
+    intercept: InterceptQueue
     extensions_loaded: list[str] = field(default_factory=list)
+    browser: EmbeddedBrowser = field(default_factory=EmbeddedBrowser)
+    upstream: UpstreamRoute = field(default_factory=UpstreamRoute)
 
 
 def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
-                  db_path="dastday.db", ext_dir="extensions") -> AppContext:
+                  db_path="dastday.db", ext_dir="extensions",
+                  projects_dir="projects") -> AppContext:
     interceptor = Interceptor()
     proxy = ProxyServer(proxy_host, proxy_port, interceptor)
 
@@ -41,9 +54,9 @@ def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
     passive = PassiveScanner()
     repeater = Repeater(proxy)
 
-    # Active engine wired to the proxy's upstream path, but UNAUTHORIZED and with
-    # zero checks by default. It does nothing until an operator supplies checks
-    # and authorizes a scope.
+    # Active engine wired to the proxy's upstream path. It ships with the bundled
+    # checks registered, but stays UNAUTHORIZED until the operator asserts a
+    # scope: no check runs against any host until then.
     async def send(req):
         from core.http_message import Flow
         import time
@@ -54,16 +67,36 @@ def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
         return flow
 
     active = ActiveScanEngine(send, authorized=False)
+    active.register_defaults()
 
-    # Register addons in order: history + passive scanning observe every flow.
+    # Intruder shares the active engine's authorization: a target host must be in
+    # the authorized active scope before payload automation will run.
+    def authz(url):
+        return active.authorized and active._in_scope(url)
+
+    intruder = IntruderEngine(repeater.send_raw, authz=authz)
+
+    projects = ProjectManager(history=history, interceptor=interceptor,
+                              passive=passive, active=active, db_path=db_path,
+                              projects_dir=projects_dir)
+
+    # Intercept first so edits land before history/passive see the flow.
+    intercept = InterceptQueue(interceptor)
+    interceptor.add(intercept)
     interceptor.add(history)
     interceptor.add(passive)
 
-    # Load extensions (passive example ships; active checks are operator-supplied).
-    api = ExtensionAPI(interceptor, passive, active)
+    # Load extensions (passive + active examples ship; add your own checks too).
+    api = ExtensionAPI(interceptor, passive, active, intruder)
     loaded = ExtensionManager(api, ext_dir).load_all()
 
-    return AppContext(interceptor, proxy, history, passive, repeater, active, loaded)
+    ctx = AppContext(interceptor, proxy, history, passive, repeater, active,
+                     intruder, projects, None, intercept, loaded)  # type: ignore[arg-type]
+    ctx.assistant = Assistant(ctx)
+    ctx.browser = EmbeddedBrowser()
+    ctx.upstream = UpstreamRoute()
+    ctx.proxy.upstream = ctx.upstream
+    return ctx
 
 
 async def run(proxy_host="127.0.0.1", proxy_port=8080,
@@ -74,11 +107,11 @@ async def run(proxy_host="127.0.0.1", proxy_port=8080,
     config = uvicorn.Config(app, host=ui_host, port=ui_port, log_level="warning")
     server = uvicorn.Server(config)
 
-    print(f"[dastday] proxy   → http://{proxy_host}:{proxy_port}")
-    print(f"[dastday] web UI  → http://{ui_host}:{ui_port}")
-    print(f"[dastday] extensions loaded: {ctx.extensions_loaded or 'none'}")
-    print("[dastday] install the CA from the UI, then point your browser's "
-          "proxy at the address above.")
+    print(f"[sureguard] proxy   → http://{proxy_host}:{proxy_port}")
+    print(f"[sureguard] web UI  → http://{ui_host}:{ui_port}")
+    print(f"[sureguard] extensions loaded: {ctx.extensions_loaded or 'none'}")
+    print("[sureguard] click Open browser in the UI — Chromium is already "
+          "pointed at the proxy.")
 
     await asyncio.gather(
         ctx.proxy.serve_forever(),

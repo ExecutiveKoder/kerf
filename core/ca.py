@@ -52,8 +52,8 @@ class CertificateAuthority:
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         subject = issuer = x509.Name(
             [
-                x509.NameAttribute(NameOID.COMMON_NAME, "DastDay Root CA"),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "DastDay"),
+                x509.NameAttribute(NameOID.COMMON_NAME, "SureGuard Root CA"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "SureGuard"),
             ]
         )
         now = datetime.datetime.now(datetime.timezone.utc)

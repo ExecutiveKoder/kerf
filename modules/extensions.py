@@ -17,18 +17,41 @@ from pathlib import Path
 from core.interceptor import Interceptor, BaseAddon
 from modules.passive_scanner import PassiveScanner, PassiveCheck
 from modules.active_scan import ActiveScanEngine, ActiveCheck
+from modules import payloads as payload_lib
 
 
 class ExtensionAPI:
-    """Handed to each extension's register() function."""
+    """Handed to each extension's register() function.
+
+    This is the surface BApp-style extensions build on. It exposes the passive
+    and active engines, the Intruder engine, and the payload / issue libraries so
+    add-ons can contribute new checks, payload sets, and issue metadata — the
+    same category of capability that used to require Pro-only APIs.
+    """
 
     def __init__(self, interceptor: Interceptor,
-                 passive: PassiveScanner, active: ActiveScanEngine) -> None:
+                 passive: PassiveScanner, active: ActiveScanEngine,
+                 intruder=None) -> None:
         self._interceptor = interceptor
         self._passive = passive
         self._active = active
+        self._intruder = intruder
         self.loaded: list[str] = []
 
+    # --- engines (extensions may hold references to drive them) -----------
+    @property
+    def interceptor(self) -> Interceptor:
+        return self._interceptor
+
+    @property
+    def active(self) -> ActiveScanEngine:
+        return self._active
+
+    @property
+    def intruder(self):
+        return self._intruder
+
+    # --- addons / checks ---------------------------------------------------
     def add_addon(self, addon: BaseAddon) -> None:
         self._interceptor.add(addon)
 
@@ -39,6 +62,18 @@ class ExtensionAPI:
         """Register an active check. The operator is responsible for only using
         active checks against targets they are authorized to test."""
         self._active.register(check)
+
+    # --- libraries ---------------------------------------------------------
+    def add_payload_set(self, name: str, category: str, description: str,
+                        payloads: list) -> None:
+        payload_lib.PAYLOAD_SETS[name] = payload_lib.PayloadSet(
+            name, category, description, list(payloads))
+
+    def add_issue_type(self, key: str, title: str, severity: str,
+                       description: str, remediation: str,
+                       references: list | None = None) -> None:
+        payload_lib.ISSUE_LIBRARY[key] = payload_lib.IssueType(
+            key, title, severity, description, remediation, list(references or []))
 
 
 class ExtensionManager:

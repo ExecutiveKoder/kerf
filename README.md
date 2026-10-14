@@ -1,4 +1,4 @@
-# DastDay
+# SureGuard
 
 An open-source, clean-room web security proxy and manual-testing toolkit. It
 gives you an intercepting HTTP/HTTPS proxy, searchable traffic history, a

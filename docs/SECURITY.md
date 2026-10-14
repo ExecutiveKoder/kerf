@@ -2,7 +2,7 @@
 
 ## Authorization is a precondition, not a suggestion
 
-DastDay intercepts and can replay HTTP/HTTPS traffic. Run it only against:
+SureGuard intercepts and can replay HTTP/HTTPS traffic. Run it only against:
 
 - systems you own, or
 - systems you have **explicit, written permission** to test (a signed scope /
@@ -41,5 +41,5 @@ Those are left to operators for authorized engagements. See
 
 ## Reporting a vulnerability in this tool
 
-If you find a security issue in DastDay itself, open a private advisory on
+If you find a security issue in SureGuard itself, open a private advisory on
 the project's repository rather than a public issue.

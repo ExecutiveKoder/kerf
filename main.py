@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kerf — a clean-room web security proxy and testing toolkit (personal use).
+Kerf — a web security proxy and testing toolkit (personal use).
 
 Entry point. Starts the intercepting proxy and the web UI.
 

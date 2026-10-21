@@ -2,7 +2,7 @@
 
 **Website:** [kerf.software](https://kerf.software)
 
-A clean-room web security proxy and manual-testing toolkit. It
+A web security proxy and manual-testing toolkit. It
 gives you an intercepting HTTP/HTTPS proxy, searchable History, Replay,
 Encode, Compare, Tokens, a **passive** scanner, and a plugin API, all behind
 a local web UI. Personal use only — see [LICENSE](LICENSE).

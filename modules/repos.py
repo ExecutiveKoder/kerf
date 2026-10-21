@@ -341,11 +341,38 @@ def _is_comment_line(snippet: str) -> bool:
     return line.startswith(("//", "#", "*", "/*", "--"))
 
 
+def _is_catalog_or_doc_line(snippet: str) -> bool:
+    """Rule lists, regexes, and quoted advice are not the sink."""
+    s = (snippet or "").lstrip()
+    return s.startswith(("r\"", "r'", "\"", "'", "(", "#"))
+
+
+def _ignore_hit(rule_id: str, path: str, snippet: str) -> bool:
+    """Skip fixtures: tests, comments, detector docs, example secrets."""
+    if _is_test_path(path) or _is_comment_line(snippet) or _is_catalog_or_doc_line(snippet):
+        return True
+    if rule_id == "secret.aws-key" and "AKIAIOSFODNN7EXAMPLE" in (snippet or ""):
+        return True
+    if rule_id == "code.innerhtml":
+        if re.search(r"dangerouslySetInnerHTML\s*=", snippet or ""):
+            return False
+        if re.search(r"innerHTML\s*=\s*['\"`]", snippet or ""):
+            return True
+        if re.search(r"innerHTML[\s\S]{0,80}\.map\s*\(", snippet or ""):
+            return True
+        if not re.search(
+            r"innerHTML\s*=\s*.{0,60}("
+            r"user|input|query|param|body|hash|search|"
+            r"\breq\b|request|location|document\.write)",
+            snippet or "",
+            re.I,
+        ):
+            return True
+    return False
+
+
 def _ignore_code_hit(rule_id: str, path: str, snippet: str) -> bool:
-    """eval in tests and comments is almost always a fixture, not a sink."""
-    if rule_id != "code.eval":
-        return False
-    return _is_test_path(path) or _is_comment_line(snippet)
+    return _ignore_hit(rule_id, path, snippet)
 
 
 def _source_priority(path: str) -> int:
@@ -368,7 +395,7 @@ def scan_text(path: str, text: str) -> list[dict]:
                 end = len(text)
             full_line = text[start:end]
             snippet = full_line.strip()[:80]
-            if _ignore_code_hit(rid, path, full_line):
+            if _ignore_hit(rid, path, full_line):
                 continue
             found.append(enrich_finding({
                 "id": rid,
@@ -387,8 +414,8 @@ def _public_repo(row: dict) -> dict:
     out = dict(row)
     kept = []
     for f in row.get("findings") or []:
-        if _ignore_code_hit(f.get("id") or "", f.get("path") or "",
-                            f.get("evidence") or ""):
+        if _ignore_hit(f.get("id") or "", f.get("path") or "",
+                       f.get("evidence") or ""):
             continue
         kept.append(enrich_finding(f))
     out["findings"] = kept
@@ -596,11 +623,41 @@ class RepoStore:
         if token:
             headers["Authorization"] = "Bearer " + token
         r = await client.get(url, headers=headers, follow_redirects=True)
+        if r.status_code in (403, 429):
+            raise PermissionError(
+                "GitHub rate-limited the request. Paste a token under Repos.")
         if r.status_code != 200:
             return ""
         if len(r.content) > MAX_BYTES:
             return ""
         return r.text
+
+    def start_scan(self, repo_id: str, *, full: bool = False) -> dict:
+        if not self._data.get("authorized"):
+            raise PermissionError(
+                "Check “I am authorized to scan every repository on this list”, "
+                "then run Full scan.")
+        row = self._row(repo_id)
+        if repo_id in self._active or row.get("status") == "scanning":
+            return self.public()
+        row["status"] = "scanning"
+        row["progress"] = "Starting…"
+        row["error"] = ""
+        row["mode"] = "full" if full else "quick"
+        row["findings"] = []
+        row["files"] = 0
+        row["files_total"] = 0
+        row["packages"] = 0
+        self._save()
+
+        async def run() -> None:
+            try:
+                await self.scan(repo_id, full=full)
+            except Exception:
+                pass
+
+        asyncio.get_running_loop().create_task(run())
+        return self.public()
 
     async def scan(self, repo_id: str, *, full: bool = False,
                   keep_stop: bool = False) -> dict:
@@ -629,7 +686,7 @@ class RepoStore:
         self._active.add(repo_id)
         note("Listing repository on GitHub…")
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with httpx.AsyncClient(timeout=30) as client:
                 self._clients[repo_id] = client
                 try:
                     if self._want_stop(repo_id):
@@ -704,6 +761,8 @@ class RepoStore:
                             row, findings, packages, files, files_total)
                     for f in dep:
                         cve = f.get("cve") or ""
+                        label = cve or f.get("id") or "advisory"
+                        summary = (f.get("summary") or "").strip()
                         findings.append({
                             "id": f.get("id") or "",
                             "kind": "dependency",
@@ -714,11 +773,14 @@ class RepoStore:
                             "cve": cve,
                             "cves": f.get("cves") or [],
                             "sources": f.get("sources") or [],
-                            "title": f"{f.get('name')} {f.get('version')} — {cve or f.get('id')}",
-                            "detail": f.get("summary") or "Known vulnerability in a locked dependency.",
+                            "title": f"{f.get('name')} {f.get('version')} — {label}",
+                            "detail": summary or f"{label} affects {f.get('name')} {f.get('version')}.",
                             "path": "",
                             "line": 0,
-                            "evidence": f"{f.get('ecosystem')} {f.get('name')}@{f.get('version')}",
+                            "evidence": (
+                                f"{f.get('ecosystem')} {f.get('name')}@{f.get('version')}"
+                                + (f" (from {f['requested']})" if f.get("requested") else "")
+                            ),
                             "repo": f"{row['owner']}/{row['name']}",
                             "refs": f.get("refs") or [],
                         })

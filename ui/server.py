@@ -874,9 +874,11 @@ def create_app(ctx) -> FastAPI:
     @app.post("/api/repos/scan")
     async def repos_scan(body: RepoIdBody):
         try:
-            return await ctx.repos.scan(body.id, full=body.full)
+            return ctx.repos.start_scan(body.id, full=body.full)
         except PermissionError as exc:
             raise HTTPException(403, str(exc))
+        except KeyError:
+            raise HTTPException(404, "repo not found")
         except FileNotFoundError as exc:
             raise HTTPException(404, str(exc))
         except Exception as exc:

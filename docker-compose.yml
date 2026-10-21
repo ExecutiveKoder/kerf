@@ -1,17 +1,22 @@
 # Personal use only. See LICENSE.
-# First run builds the image and installs Python deps.
-# After that: docker compose up -d
+# First run builds the image (Python + Chromium). Later: docker compose up -d
 services:
   kerf:
     build: .
     image: kerf:local
     ports:
-      - "8000:8000"
-      - "8080:8080"
+      - "${KERF_UI_PORT:-8000}:8000"
+      - "${KERF_PROXY_PORT:-8080}:8080"
+      - "${KERF_BROWSER_PORT:-6080}:6080"
     environment:
       DASTDAY_HOME: /data
+      KERF_DOCKER: "1"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      DISPLAY: ":99"
+      KERF_BROWSER_PORT: ${KERF_BROWSER_PORT:-6080}
     volumes:
       - ./data:/data
+    shm_size: "1gb"
     restart: unless-stopped
     healthcheck:
       test:
@@ -24,4 +29,4 @@ services:
       interval: 10s
       timeout: 3s
       retries: 12
-      start_period: 15s
+      start_period: 40s

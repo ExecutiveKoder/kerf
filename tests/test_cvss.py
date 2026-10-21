@@ -50,6 +50,32 @@ def test_osv_row_uses_vector_not_guess():
     assert row["cvss_source"] == "OSV"
 
 
+def test_dedupe_osv_merges_pysec_into_ghsa():
+    rows = sca.dedupe_osv([
+        {
+            "ecosystem": "PyPI", "name": "cryptography", "version": "42.0",
+            "id": "GHSA-aaaa-bbbb-cccc", "aliases": ["CVE-2024-26130"],
+            "cve": "CVE-2024-26130", "cves": ["CVE-2024-26130"],
+            "cvss": 7.5, "severity": "high",
+            "summary": "NULL deref", "refs": ["https://example/ghsa"],
+            "sources": ["OSV"],
+        },
+        {
+            "ecosystem": "PyPI", "name": "cryptography", "version": "42.0",
+            "id": "PYSEC-2024-225", "aliases": ["CVE-2024-26130", "GHSA-aaaa-bbbb-cccc"],
+            "cve": "CVE-2024-26130", "cves": ["CVE-2024-26130"],
+            "cvss": None, "severity": "unknown",
+            "summary": "", "refs": ["https://example/pysec"],
+            "sources": ["OSV"],
+        },
+    ])
+    assert len(rows) == 1
+    assert rows[0]["cve"] == "CVE-2024-26130"
+    assert rows[0]["cvss"] == 7.5
+    assert "PYSEC-2024-225" in rows[0]["aliases"]
+    assert rows[0]["summary"] == "NULL deref"
+
+
 def test_sort_real_cvss_first():
     rows = [
         {"id": "b", "cvss": 6.5, "severity": "medium"},
@@ -64,5 +90,6 @@ if __name__ == "__main__":
     test_known_vectors()
     test_bucket_from_real_score()
     test_osv_row_uses_vector_not_guess()
+    test_dedupe_osv_merges_pysec_into_ghsa()
     test_sort_real_cvss_first()
     print("cvss tests ok")

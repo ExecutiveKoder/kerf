@@ -674,7 +674,7 @@
     <section class="view" id="view-intercept">
       <div class="viewhead"><div class="ht">
         <h1>Intercept</h1>
-        <p>Click Open browser for an isolated Chromium already pointed at the proxy. Turn intercept on, browse, then edit / forward / drop. Your everyday Chrome is not touched.</p>
+        <p>Click Open browser for an isolated Chromium already pointed at the proxy (in Docker it opens in a new tab). Turn intercept on, browse, then edit / forward / drop. Your everyday Chrome is not touched.</p>
       </div></div>
       <div class="viewbody" style="display:flex; flex-direction:column;">
         <div id="ix-banner" class="banner locked">
@@ -1813,7 +1813,12 @@ async function openBrowser() {
       return;
     }
     if (!r.ok) { set(r.error || 'could not open browser'); return; }
-    set(r.opened ? 'Kerf browser opened' : 'browser already running');
+    if (r.view_url) {
+      window.open(r.view_url, 'kerf-browser');
+      set((r.opened ? 'Kerf browser opened' : 'browser already running') + ' — view in the new tab');
+    } else {
+      set(r.opened ? 'Kerf browser opened' : 'browser already running');
+    }
   } catch(e) { set(e.message); }
 }
 
@@ -2948,8 +2953,24 @@ async function saveRepoToken() {
   } catch(e) { $('#rp-msg').textContent = e.message; }
 }
 
+async function waitRepoDone(id) {
+  for (let i = 0; i < 3600; i++) {
+    const d = await api('/api/repos');
+    const row = (d.repos || []).find(r => r.id === id);
+    await loadRepos({silent: true});
+    if (!row || row.status !== 'scanning') return row || {};
+    await new Promise(r => setTimeout(r, 700));
+  }
+  return {};
+}
+
 async function scanRepo(id, full) {
   if (repoScanBusy) return;
+  if (!$('#rp-auth') || !$('#rp-auth').checked) {
+    $('#rp-msg').textContent = 'Check “I am authorized to scan every repository on this list”, then run Full scan.';
+    return;
+  }
+  try { await saveRepoAuth(); } catch (e) { $('#rp-msg').textContent = e.message; return; }
   const known = lastRepos.find(r => r.id === id);
   if (known) setRepoFilter(repoKey(known));
   setRepoBusy(true, full ? 'Full scan — reading every listed file from GitHub…'
@@ -2958,11 +2979,14 @@ async function scanRepo(id, full) {
   $('#rp-findings').innerHTML = '<div class="empty">Previous results cleared. Waiting for this scan…</div>';
   startRepoPoll();
   try {
-    const row = await api('/api/repos/scan', {method:'POST', headers:{'content-type':'application/json'},
+    await api('/api/repos/scan', {method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({id, full: !!full})});
+    const row = await waitRepoDone(id);
     const n = (row.findings||[]).length;
     $('#rp-msg').textContent = row.status === 'stopped'
       ? `Scan stopped · ${n} finding(s) so far · ${row.files||0} files`
+      : row.status === 'error'
+        ? (row.error || 'Scan failed')
       : `${full ? 'Full' : 'Quick'} scan done · ${n} finding(s) · ${row.files||0} files`;
   } catch(e) { $('#rp-msg').textContent = e.message; }
   finally { stopRepoPoll(); setRepoBusy(false); await loadRepos(); }

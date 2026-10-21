@@ -22,6 +22,8 @@ import httpx
 from modules import cvss as cvsslib
 
 OSV = "https://api.osv.dev/v1/querybatch"
+OSV_VULN = "https://api.osv.dev/v1/vulns"
+PYPI = "https://pypi.org/pypi"
 NVD = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 GH_ADV = "https://api.github.com/advisories"
 
@@ -45,9 +47,22 @@ def parse_requirements(text: str) -> list[dict]:
         line = line.strip()
         if not line or line.startswith(("#", "-")):
             continue
-        m = re.match(r"([A-Za-z0-9_.\-]+)\s*==\s*([A-Za-z0-9_.+\-]+)", line)
-        if m:
-            out.append(_pkg("pypi", m.group(1), m.group(2)))
+        line = line.split("#", 1)[0].split(";", 1)[0].strip()
+        if not line:
+            continue
+        m = re.match(
+            r"([A-Za-z0-9_.\-]+)(?:\[[^\]]+\])?\s*(===|==|>=|<=|~=|!=|<|>)?\s*"
+            r"([A-Za-z0-9_.+\-]*)",
+            line,
+        )
+        if m and m.group(1):
+            op = m.group(2) or ""
+            ver = m.group(3) or ""
+            row = _pkg("pypi", m.group(1), ver or "0")
+            row["op"] = op
+            row["pinned"] = op in ("==", "===")
+            row["spec"] = f"{op}{ver}" if op else (ver or m.group(1))
+            out.append(row)
     return out
 
 
@@ -166,7 +181,11 @@ def _osv_row(pkg: dict, vuln: dict) -> dict:
     cves = cvsslib.cves_of(ids)
     score, vector = _osv_cvss(vuln)
     refs = [r.get("url") for r in (vuln.get("references") or []) if r.get("url")]
-    return {
+    summary = (vuln.get("summary") or "").strip()
+    if not summary:
+        details = (vuln.get("details") or "").strip()
+        summary = details.split("\n\n", 1)[0][:400]
+    row = {
         "ecosystem": pkg["ecosystem"],
         "name": pkg["name"],
         "version": pkg["version"],
@@ -178,10 +197,13 @@ def _osv_row(pkg: dict, vuln: dict) -> dict:
         "cvss_vector": vector,
         "cvss_source": "OSV" if score is not None else "",
         "severity": cvsslib.bucket(score),
-        "summary": vuln.get("summary") or "",
+        "summary": summary,
         "sources": ["OSV"],
         "refs": refs[:8],
     }
+    if pkg.get("requested"):
+        row["requested"] = pkg["requested"]
+    return row
 
 
 def _cache_path() -> Path:
@@ -325,21 +347,146 @@ async def _enrich(findings: list[dict], *, github_token: str = "") -> list[dict]
     return findings
 
 
+def _cluster_keys(f: dict) -> set[tuple]:
+    eco = f.get("ecosystem") or ""
+    name = (f.get("name") or "").lower()
+    ver = f.get("version") or ""
+    keys = set()
+    ids = [f.get("id"), f.get("cve"), *(f.get("cves") or []), *(f.get("aliases") or [])]
+    for cve in cvsslib.cves_of(ids):
+        keys.add((eco, name, ver, "cve", cve))
+    for ghsa in cvsslib.ghsas_of(ids):
+        keys.add((eco, name, ver, "ghsa", ghsa.lower()))
+    if not keys and f.get("id"):
+        keys.add((eco, name, ver, "id", str(f["id"]).upper()))
+    return keys
+
+
+def _id_rank(fid: str) -> int:
+    u = (fid or "").upper()
+    if u.startswith("CVE-"):
+        return 0
+    if u.startswith("GHSA-"):
+        return 1
+    if u.startswith("PYSEC-"):
+        return 3
+    return 2
+
+
+def _merge_osv_group(rows: list[dict]) -> dict:
+    rows = sorted(rows, key=lambda f: (
+        0 if f.get("cvss") is not None else 1,
+        _id_rank(f.get("id") or ""),
+        -(f.get("cvss") or 0),
+    ))
+    out = dict(rows[0])
+    aliases, cves, refs, sources = set(), set(), [], []
+    for f in rows:
+        aliases.update(x for x in (f.get("aliases") or []) if x)
+        if f.get("id"):
+            aliases.add(f["id"])
+        cves.update(f.get("cves") or [])
+        if f.get("cve"):
+            cves.add(f["cve"])
+        for url in f.get("refs") or []:
+            if url not in refs:
+                refs.append(url)
+        for src in f.get("sources") or []:
+            if src not in sources:
+                sources.append(src)
+        if not (out.get("summary") or "").strip() and f.get("summary"):
+            out["summary"] = f["summary"]
+        if out.get("cvss") is None and f.get("cvss") is not None:
+            out["cvss"] = f["cvss"]
+            out["cvss_vector"] = f.get("cvss_vector") or ""
+            out["cvss_source"] = f.get("cvss_source") or ""
+    out["aliases"] = sorted(aliases)
+    out["cves"] = cvsslib.cves_of(list(cves) + list(aliases) + [out.get("id")])
+    out["cve"] = out["cves"][0] if out["cves"] else (out.get("cve") or "")
+    ghsa = cvsslib.ghsas_of([out.get("id"), *aliases])
+    if (out.get("id") or "").upper().startswith("PYSEC-"):
+        out["id"] = out["cve"] or (ghsa[0] if ghsa else out.get("id"))
+    out["refs"] = refs[:8]
+    out["sources"] = sources or ["OSV"]
+    out["severity"] = cvsslib.bucket(out.get("cvss"))
+    return out
+
+
+def dedupe_osv(findings: list[dict]) -> list[dict]:
+    """Collapse GHSA + PYSEC (+ extra aliases) for the same package CVE."""
+    if not findings:
+        return []
+    parent = list(range(len(findings)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    seen: dict[tuple, int] = {}
+    for i, f in enumerate(findings):
+        for key in _cluster_keys(f):
+            if key in seen:
+                union(i, seen[key])
+            else:
+                seen[key] = i
+    buckets: dict[int, list[dict]] = {}
+    for i, f in enumerate(findings):
+        buckets.setdefault(find(i), []).append(f)
+    out = [_merge_osv_group(rows) for rows in buckets.values()]
+    out.sort(key=cvsslib.sort_key)
+    return out
+
+
+async def _resolve_unpinned(packages: list[dict], client: httpx.AsyncClient) -> None:
+    """Use the latest PyPI release for unpinned / range pins so we don't
+    treat `cryptography>=42.0` as a lock on 42.0."""
+    sem = asyncio.Semaphore(8)
+
+    async def one(pkg: dict) -> None:
+        if (pkg.get("ecosystem") or "") != "PyPI":
+            return
+        if pkg.get("pinned") or pkg.get("op") in ("==", "==="):
+            return
+        async with sem:
+            try:
+                r = await client.get(f"{PYPI}/{pkg['name']}/json")
+            except Exception:
+                return
+        if r.status_code != 200:
+            return
+        latest = ((r.json() or {}).get("info") or {}).get("version")
+        if not latest:
+            return
+        spec = pkg.get("spec") or pkg.get("op", "") + (pkg.get("version") or "")
+        pkg["requested"] = spec or pkg.get("version")
+        pkg["version"] = latest
+
+    await asyncio.gather(*(one(p) for p in packages))
+
+
 async def query_osv(packages: list[dict], *, github_token: str = "") -> list[dict]:
     if not packages:
         return []
     seen = set()
     uniq = []
-    for p in packages:
-        key = (p["ecosystem"], p["name"], p["version"])
-        if key in seen:
-            continue
-        seen.add(key)
-        uniq.append(p)
-    queries = [{"package": {"name": p["name"], "ecosystem": p["ecosystem"]},
-                "version": p["version"]} for p in uniq]
-    findings = []
+    pairs: list[tuple[dict, str]] = []
     async with httpx.AsyncClient(timeout=30) as client:
+        await _resolve_unpinned(packages, client)
+        for p in packages:
+            key = (p["ecosystem"], p["name"], p["version"])
+            if key in seen:
+                continue
+            seen.add(key)
+            uniq.append(p)
+        queries = [{"package": {"name": p["name"], "ecosystem": p["ecosystem"]},
+                    "version": p["version"]} for p in uniq]
         for i in range(0, len(queries), 80):
             batch = queries[i:i + 80]
             r = await client.post(OSV, json={"queries": batch})
@@ -347,8 +494,22 @@ async def query_osv(packages: list[dict], *, github_token: str = "") -> list[dic
             results = r.json().get("results") or []
             for pkg, res in zip(uniq[i:i + 80], results):
                 for v in res.get("vulns") or []:
-                    findings.append(_osv_row(pkg, v))
-    return await _enrich(findings, github_token=github_token)
+                    vid = (v or {}).get("id") or ""
+                    if vid:
+                        pairs.append((pkg, vid))
+        ids = list(dict.fromkeys(vid for _, vid in pairs))
+        hydrated: dict[str, dict] = {}
+        sem = asyncio.Semaphore(8)
+
+        async def load(vid: str) -> None:
+            async with sem:
+                r = await client.get(f"{OSV_VULN}/{vid}")
+                hydrated[vid] = r.json() if r.status_code == 200 else {"id": vid}
+
+        await asyncio.gather(*(load(vid) for vid in ids))
+    findings = [_osv_row(pkg, hydrated.get(vid) or {"id": vid})
+                for pkg, vid in pairs]
+    return dedupe_osv(await _enrich(findings, github_token=github_token))
 
 
 def cyclonedx(packages: list[dict], findings: list[dict]) -> dict:

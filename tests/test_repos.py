@@ -48,6 +48,22 @@ def test_eval_in_tests_is_ignored():
     assert any(h["id"] == "code.eval" for h in hits)
 
 
+def test_fixtures_and_rule_catalog_are_ignored():
+    assert scan_text("tests/test_repos.py", "os.system(cmd)\npickle.loads(data)\n") == []
+    assert scan_text(
+        "modules/repos.py",
+        '    r"dangerouslySetInnerHTML|\\.innerHTML\\s*="\n'
+        '    "Replace yaml.load(...) with yaml.safe_load(...)."\n'
+        '    "example (AKIAIOSFODNN7EXAMPLE) is a fixture"\n',
+    ) == []
+    hits = scan_text("app.py", "el.innerHTML = userInput\nyaml.load(data)\n")
+    kinds = {h["id"] for h in hits}
+    assert "code.innerhtml" in kinds
+    assert "code.yaml-load" in kinds
+    assert scan_text("ui.js", "el.innerHTML = '<div>ok</div>'\n") == []
+    assert scan_text("ui.js", "el.innerHTML = rows.map(r => r.html)\n") == []
+
+
 def test_scan_text_dangerous_exec():
     hits = scan_text("run.py", "os.system(cmd)\nchild_process.exec(user)\n")
     kinds = {h["id"] for h in hits}
@@ -69,10 +85,25 @@ def test_store_add_and_auth():
         raise AssertionError("scanned without authorization")
     except PermissionError:
         pass
+    try:
+        store.start_scan(row["id"], full=True)
+        raise AssertionError("started a scan without authorization")
+    except PermissionError as exc:
+        assert "authorized" in str(exc).lower()
     store.configure(authorized=True)
     assert store.public()["authorized"] is True
     store.remove(row["id"])
     assert store.public()["repos"] == []
+
+
+def test_requirements_keeps_range_vs_pin():
+    rows = {p["name"]: p for p in sca.parse_requirements(
+        "cryptography>=42.0\nhttpx==0.27.0\n")}
+    assert rows["cryptography"]["pinned"] is False
+    assert rows["cryptography"]["spec"] == ">=42.0"
+    assert rows["cryptography"]["version"] == "42.0"
+    assert rows["httpx"]["pinned"] is True
+    assert rows["httpx"]["version"] == "0.27.0"
 
 
 def test_package_lock_includes_dev():

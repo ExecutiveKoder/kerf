@@ -58,8 +58,8 @@ This keeps the project useful without shipping a packaged exploitation toolkit.
 
 ## Install and run
 
-Docker installs Python and starts Kerf. First run builds the image; later
-runs are just start.
+Docker installs Python and Playwright Chromium, then starts Kerf. First run
+builds the image; later runs are just start. Docker Desktop must be running.
 
 ```bash
 git clone https://github.com/ExecutiveKoder/kerf.git
@@ -73,7 +73,10 @@ Then:
 2. Accept the Kerf Personal Use License (no commercial use, no redistribution).
 3. Go to **Setup**, download the CA, and install it in your browser/OS trust
    store (only on a machine you control).
-4. Point your browser's HTTP/HTTPS proxy at `127.0.0.1:8080`.
+4. Click **Open browser**. That launches isolated Chromium inside the container
+   (already using the proxy) and opens it in a new tab. If you open the viewer
+   yourself, use http://127.0.0.1:6080 (it should land on Chromium, not a
+   file list). You can also point a host browser at `127.0.0.1:8080`.
 5. Browse. Traffic shows up under **History**; passive findings under
    **Findings**.
 

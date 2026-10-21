@@ -18,6 +18,25 @@ CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
 PROFILE_DIR = CONFIG_DIR / "chromium-profile"
 
 
+def _in_container() -> bool:
+    return Path("/.dockerenv").exists() or os.environ.get("KERF_DOCKER") == "1"
+
+
+def _proxy_target(host: str) -> str:
+    if host in ("0.0.0.0", "::", "[::]"):
+        return "127.0.0.1"
+    return host
+
+
+def _view_url() -> str:
+    if not _in_container():
+        return ""
+    if os.environ.get("KERF_BROWSER_VIEW"):
+        return os.environ["KERF_BROWSER_VIEW"]
+    port = os.environ.get("KERF_BROWSER_PORT", "6080")
+    return f"http://127.0.0.1:{port}/vnc.html?autoconnect=1&resize=scale"
+
+
 def _system_browsers() -> list[Path]:
     home = Path.home()
     names = [
@@ -61,7 +80,7 @@ def _playwright_roots() -> list[Path]:
 def _playwright_chromium() -> Path | None:
     patterns = (
         "chromium-*/chrome-mac-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-        "chromium-*/chrome-linux/chrome",
+        "chromium-*/chrome-linux*/chrome",
         "chromium-*/chrome-win64/chrome.exe",
         "chromium-*/chrome-win/chrome.exe",
     )
@@ -94,6 +113,7 @@ class EmbeddedBrowser:
             "installing": self._installing,
             "install_error": self._install_error,
             "via": self._via if self._alive() else "",
+            "view_url": _view_url(),
         }
 
     async def ensure_chromium(self) -> Path | None:
@@ -130,10 +150,10 @@ class EmbeddedBrowser:
                 dest.write_bytes(CA_CERT_PATH.read_bytes())
         except Exception:
             pass
-        return [
+        args = [
             str(exe),
             f"--user-data-dir={PROFILE_DIR}",
-            f"--proxy-server=http://{proxy_host}:{proxy_port}",
+            f"--proxy-server=http://{_proxy_target(proxy_host)}:{proxy_port}",
             "--proxy-bypass-list=<-loopback>",
             "--ignore-certificate-errors",
             "--allow-insecure-localhost",
@@ -142,8 +162,18 @@ class EmbeddedBrowser:
             "--disable-sync",
             "--disable-features=HttpsFirstBalancedModeAutoEnable,HttpsUpgrades",
             "--disable-infobars",
-            "about:blank",
         ]
+        if _in_container():
+            args[1:1] = [
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--window-size=1400,900",
+                "--window-position=0,0",
+                "--start-maximized",
+            ]
+        args.append("about:blank")
+        return args
 
     async def open(self, proxy_host: str, proxy_port: int) -> dict:
         if self._alive():
@@ -165,11 +195,15 @@ class EmbeddedBrowser:
                     "error": "Downloading Chromium. Click Open browser again in a minute.",
                 }
 
+        env = os.environ.copy()
+        if _in_container():
+            env.setdefault("DISPLAY", ":99")
         self._proc = await asyncio.create_subprocess_exec(
             *self._args(exe, proxy_host, proxy_port),
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
             start_new_session=True,
+            env=env,
         )
         self._via = via
         return {**self.status(), "ok": True, "opened": True}

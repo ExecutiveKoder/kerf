@@ -3,9 +3,8 @@ Extension loader.
 
 An extension is a Python module placed in the extensions directory that exposes a
 `register(api)` function. It receives an ExtensionAPI it can use to add passive
-checks, addons, Repeater actions, or (if the operator supplies them) active-scan
-checks. This is the plugin seam that makes the tool extensible like Burp's BApp
-store or ZAP add-ons.
+checks, addons, Replay actions, or (if the operator supplies them) Scan
+checks. This is the plugin seam for drop-in extensions.
 """
 
 from __future__ import annotations
@@ -23,10 +22,9 @@ from modules import payloads as payload_lib
 class ExtensionAPI:
     """Handed to each extension's register() function.
 
-    This is the surface BApp-style extensions build on. It exposes the passive
-    and active engines, the Intruder engine, and the payload / issue libraries so
-    add-ons can contribute new checks, payload sets, and issue metadata — the
-    same category of capability that used to require Pro-only APIs.
+    Extensions use this to reach the passive and active engines, payload
+    attacks, and the payload / issue libraries so add-ons can contribute checks,
+    payload sets, and issue metadata.
     """
 
     def __init__(self, interceptor: Interceptor,

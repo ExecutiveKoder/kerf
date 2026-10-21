@@ -1,7 +1,7 @@
 """
-Optional outbound hop after SureGuard decrypts a request.
+Optional outbound hop after Kerf decrypts a request.
 
-Browser → SureGuard → (this proxy) → target.
+Browser → Kerf → (this proxy) → target.
 
 Typical use is Tor (SOCKS5 on 127.0.0.1:9050 or Tor Browser on 9150).
 Also accepts a plain HTTP CONNECT proxy. Direct is the default.

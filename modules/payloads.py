@@ -1,14 +1,14 @@
 """
 Curated payload sets and the scan-issue library.
 
-This is the data layer the active scanner and Intruder draw from:
+This is the data layer Scan and Payloads draw from:
 
   * PAYLOAD_SETS   — named lists of attack/fuzzing strings, grouped by class.
   * ISSUE_LIBRARY  — metadata for each issue type the scanner can raise
                      (description, remediation, references, default severity).
 
 Everything here is inert data. It only becomes a request when the active engine
-or Intruder substitutes it into an authorized target. The engine's authorization
+or Payloads substitutes it into an authorized target. The engine's authorization
 gate still applies; shipping payloads does not bypass it.
 """
 
@@ -72,7 +72,7 @@ CMDI_TIME = [
     "%0asleep {s}",
 ]
 
-# SSRF. The check prefers a user-supplied canary/collaborator URL; these are the
+# SSRF. The check prefers a user-supplied canary/callback URL; these are the
 # classic internal targets used when only a timing/latency signal is available.
 SSRF = [
     "http://169.254.169.254/latest/meta-data/",
@@ -96,7 +96,7 @@ AUTH_BYPASS_HEADERS = [
     ("X-Remote-Addr", "127.0.0.1"),
 ]
 
-# Path-traversal / LFI for Intruder fuzzing.
+# Path-traversal / LFI for Payloads fuzzing.
 PATH_TRAVERSAL = [
     "../../../../etc/passwd",
     "....//....//....//etc/passwd",
@@ -105,7 +105,7 @@ PATH_TRAVERSAL = [
     "/etc/passwd%00",
 ]
 
-# A compact generic fuzz list for Intruder sniper runs.
+# A compact generic fuzz list for one-position Payloads runs.
 FUZZ_QUICK = [
     "", "'", "\"", "<", ">", "`", ";", "|", "&", "\\", "%00", "../",
     "{{7*7}}", "${7*7}", "() { :; }; echo vuln", "A" * 1024,

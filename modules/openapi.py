@@ -1,7 +1,7 @@
 """
 OpenAPI / Swagger import.
 
-Turns a spec into request templates you can send to Repeater or the sitemap
+Turns a spec into request templates you can send to Replay or the host map
 without browsing every endpoint by hand.
 """
 

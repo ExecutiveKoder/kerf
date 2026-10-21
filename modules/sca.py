@@ -1,20 +1,29 @@
 """
-Software composition analysis via the public OSV API.
+Software composition analysis.
 
-Reads lockfiles you already have (requirements, package-lock, go.mod, …) and
-lists known vulnerabilities. This is the Sonatype Lifecycle-shaped job —
-dependency risk — not a clone of Nexus repository hosting.
+Lockfiles are looked up in several public advisory sources:
+  * OSV (package → known vuln)
+  * GitHub Advisory (GHSA → CVE / CVSS)
+  * NVD (CVE → official CVSS)
+
+Results are sorted by CVSS, high to low.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import re
 from pathlib import Path
 
 import httpx
 
+from modules import cvss as cvsslib
+
 OSV = "https://api.osv.dev/v1/querybatch"
+NVD = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+GH_ADV = "https://api.github.com/advisories"
 
 ECO = {
     "pypi": "PyPI",
@@ -54,8 +63,11 @@ def parse_package_lock(text: str) -> list[dict]:
             continue
         name = key.split("node_modules/")[-1]
         ver = meta.get("version")
-        if name and ver and not meta.get("dev"):
-            out.append(_pkg("npm", name, ver))
+        if name and ver:
+            row = _pkg("npm", name, ver)
+            if meta.get("dev"):
+                row["dev"] = True
+            out.append(row)
     if not out:
         deps = data.get("dependencies") or {}
         for name, meta in deps.items():
@@ -122,27 +134,200 @@ def parse_path(path: str) -> list[dict]:
     return parse_any(str(p), p.read_text(errors="replace"))
 
 
-def _sev(vuln: dict) -> str:
+def _best_score(*candidates) -> tuple[float | None, str]:
+    best = None
+    vector = ""
+    for raw in candidates:
+        if isinstance(raw, dict):
+            raw = raw.get("score") or raw.get("vector_string") or raw.get("vectorString")
+        n = cvsslib.parse_score(raw)
+        if n is None:
+            continue
+        if best is None or n > best:
+            best = n
+            text = str(raw).strip() if raw is not None else ""
+            vector = text if text.upper().startswith("CVSS:") else vector
+    return best, vector
+
+
+def _osv_cvss(vuln: dict) -> tuple[float | None, str]:
+    extras = []
     for sev in vuln.get("severity") or []:
-        score = str(sev.get("score") or "")
-        try:
-            n = float(score.split("/")[0])
-            if n >= 9:
-                return "critical"
-            if n >= 7:
-                return "high"
-            if n >= 4:
-                return "medium"
-            return "low"
-        except ValueError:
-            pass
-    return "medium"
+        extras.append((sev or {}).get("score"))
+    ds = vuln.get("database_specific") or {}
+    extras.append(ds.get("cvss_score"))
+    extras.append(ds.get("cvss"))
+    return _best_score(*extras)
 
 
-async def query_osv(packages: list[dict]) -> list[dict]:
+def _osv_row(pkg: dict, vuln: dict) -> dict:
+    aliases = vuln.get("aliases") or []
+    ids = [vuln.get("id"), *aliases]
+    cves = cvsslib.cves_of(ids)
+    score, vector = _osv_cvss(vuln)
+    refs = [r.get("url") for r in (vuln.get("references") or []) if r.get("url")]
+    return {
+        "ecosystem": pkg["ecosystem"],
+        "name": pkg["name"],
+        "version": pkg["version"],
+        "id": vuln.get("id") or "",
+        "aliases": aliases,
+        "cve": cves[0] if cves else "",
+        "cves": cves,
+        "cvss": score,
+        "cvss_vector": vector,
+        "cvss_source": "OSV" if score is not None else "",
+        "severity": cvsslib.bucket(score),
+        "summary": vuln.get("summary") or "",
+        "sources": ["OSV"],
+        "refs": refs[:8],
+    }
+
+
+def _cache_path() -> Path:
+    home = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    return home / "advisory-cache.json"
+
+
+def _cache_get() -> dict:
+    try:
+        path = _cache_path()
+        if path.exists():
+            data = json.loads(path.read_text())
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def _cache_put(cache: dict) -> None:
+    path = _cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cache))
+
+
+async def _github_advisory(client: httpx.AsyncClient, ghsa: str,
+                           token: str) -> dict | None:
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "Kerf"}
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    r = await client.get(f"{GH_ADV}/{ghsa}", headers=headers)
+    if r.status_code != 200:
+        return None
+    data = r.json()
+    sev = data.get("cvss_severities") or {}
+    score, vector = _best_score(
+        sev.get("cvss_v3"), data.get("cvss"), sev.get("cvss_v4"))
+    cves = []
+    for ident in data.get("identifiers") or []:
+        if (ident or {}).get("type") == "CVE":
+            cves.extend(cvsslib.cves_of([(ident or {}).get("value")]))
+    cves.extend(cvsslib.cves_of([data.get("cve_id")]))
+    return {
+        "cvss": score,
+        "vector": vector,
+        "cves": list(dict.fromkeys(cves)),
+        "source": "GitHub Advisory",
+    }
+
+
+async def _nvd_cve(client: httpx.AsyncClient, cve: str) -> dict | None:
+    headers = {"User-Agent": "Kerf-sca"}
+    key = (os.environ.get("NVD_API_KEY") or "").strip()
+    params = {"cveId": cve}
+    if key:
+        headers["apiKey"] = key
+    r = await client.get(NVD, headers=headers, params=params)
+    if r.status_code != 200:
+        return None
+    items = r.json().get("vulnerabilities") or []
+    if not items:
+        return None
+    metrics = ((items[0].get("cve") or {}).get("metrics") or {})
+    score = None
+    vector = ""
+    for key in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV40", "cvssMetricV2"):
+        rows = metrics.get(key) or []
+        if not rows:
+            continue
+        data = (rows[0].get("cvssData") or {})
+        score, vector = _best_score(data.get("baseScore"), data.get("vectorString"))
+        if score is not None:
+            if not vector:
+                vector = str(data.get("vectorString") or "")
+            break
+    return {"cvss": score, "vector": vector, "cves": [cve], "source": "NVD"}
+
+
+def _apply_hit(finding: dict, hit: dict, *, prefer: bool = False) -> None:
+    if not hit:
+        return
+    if hit.get("cves"):
+        finding["cves"] = list(dict.fromkeys((finding.get("cves") or []) + hit["cves"]))
+        if not finding.get("cve"):
+            finding["cve"] = finding["cves"][0]
+    src = hit.get("source")
+    if src and src not in finding["sources"]:
+        finding["sources"].append(src)
+    score = hit.get("cvss")
+    if score is None:
+        return
+    if finding.get("cvss") is None or prefer:
+        finding["cvss"] = score
+        finding["cvss_source"] = src or finding.get("cvss_source") or ""
+        if hit.get("vector"):
+            finding["cvss_vector"] = hit["vector"]
+
+
+async def _enrich(findings: list[dict], *, github_token: str = "") -> list[dict]:
+    token = github_token or (os.environ.get("GITHUB_TOKEN") or "").strip()
+    cache = _cache_get()
+    ghsas, cves = set(), set()
+    for f in findings:
+        keys = [f.get("id"), *(f.get("aliases") or []), *(f.get("cves") or []), f.get("cve")]
+        ghsas.update(cvsslib.ghsas_of(keys))
+        cves.update(cvsslib.cves_of(keys))
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        async def gh(ghsa: str) -> None:
+            if ghsa in cache:
+                return
+            cache[ghsa] = await _github_advisory(client, ghsa, token) or {}
+
+        await asyncio.gather(*(gh(g) for g in sorted(ghsas)))
+        for f in findings:
+            for ghsa in cvsslib.ghsas_of(
+                    [f.get("id"), *(f.get("aliases") or [])]):
+                _apply_hit(f, cache.get(ghsa) or {})
+            cves.update(f.get("cves") or [])
+            if f.get("cve"):
+                cves.add(f["cve"])
+
+        need = {cve for f in findings if f.get("cvss") is None
+                for cve in ([f.get("cve")] if f.get("cve") else (f.get("cves") or []))}
+        sem = asyncio.Semaphore(3)
+
+        async def nvd(cve: str) -> None:
+            if cve in cache:
+                return
+            async with sem:
+                cache[cve] = await _nvd_cve(client, cve) or {}
+
+        await asyncio.gather(*(nvd(c) for c in sorted(need)))
+        for f in findings:
+            for cve in ([f.get("cve")] if f.get("cve") else []) + (f.get("cves") or []):
+                hit = cache.get(cve) or {}
+                _apply_hit(f, hit, prefer=hit.get("source") == "NVD")
+            f["severity"] = cvsslib.bucket(f.get("cvss"))
+    _cache_put(cache)
+    findings.sort(key=cvsslib.sort_key)
+    return findings
+
+
+async def query_osv(packages: list[dict], *, github_token: str = "") -> list[dict]:
     if not packages:
         return []
-    # de-dupe
     seen = set()
     uniq = []
     for p in packages:
@@ -162,21 +347,8 @@ async def query_osv(packages: list[dict]) -> list[dict]:
             results = r.json().get("results") or []
             for pkg, res in zip(uniq[i:i + 80], results):
                 for v in res.get("vulns") or []:
-                    aliases = v.get("aliases") or []
-                    findings.append({
-                        "ecosystem": pkg["ecosystem"],
-                        "name": pkg["name"],
-                        "version": pkg["version"],
-                        "id": v.get("id"),
-                        "aliases": aliases,
-                        "summary": v.get("summary") or "",
-                        "severity": _sev(v),
-                        "refs": [r.get("url") for r in (v.get("references") or [])
-                                 if r.get("url")][:6],
-                    })
-    findings.sort(key=lambda f: {"critical": 0, "high": 1, "medium": 2,
-                                 "low": 3}.get(f["severity"], 9))
-    return findings
+                    findings.append(_osv_row(pkg, v))
+    return await _enrich(findings, github_token=github_token)
 
 
 def cyclonedx(packages: list[dict], findings: list[dict]) -> dict:
@@ -193,14 +365,20 @@ def cyclonedx(packages: list[dict], findings: list[dict]) -> dict:
         vulns.append({
             "id": f["id"],
             "description": f.get("summary") or "",
-            "ratings": [{"severity": f["severity"]}],
+            "ratings": [{
+                "method": "CVSSv31" if (f.get("cvss_vector") or "").startswith("CVSS:3")
+                else "other",
+                "score": f.get("cvss"),
+                "severity": f["severity"],
+                "vector": f.get("cvss_vector") or "",
+            }],
             "affects": [{"ref": f"{f['ecosystem']}:{f['name']}@{f['version']}"}],
         })
     return {
         "bomFormat": "CycloneDX",
         "specVersion": "1.5",
         "version": 1,
-        "metadata": {"tools": [{"name": "SureGuard", "version": "0.2"}]},
+        "metadata": {"tools": [{"name": "Kerf", "version": "0.2"}]},
         "components": comps,
         "vulnerabilities": vulns,
     }

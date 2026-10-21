@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SureGuard — a clean-room, open-source web security proxy and testing toolkit.
+Kerf — a clean-room web security proxy and testing toolkit (personal use).
 
 Entry point. Starts the intercepting proxy and the web UI.
 
@@ -20,7 +20,7 @@ from dastday.app import run
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="SureGuard web security proxy")
+    p = argparse.ArgumentParser(description="Kerf web security proxy")
     p.add_argument("--proxy-host", default="127.0.0.1")
     p.add_argument("--proxy-port", type=int, default=8080)
     p.add_argument("--ui-host", default="127.0.0.1")
@@ -34,7 +34,7 @@ def main() -> None:
             ui_host=args.ui_host, ui_port=args.ui_port, db_path=args.db,
         ))
     except KeyboardInterrupt:
-        print("\n[sureguard] shutting down")
+        print("\n[kerf] shutting down")
 
 
 if __name__ == "__main__":

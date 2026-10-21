@@ -1,8 +1,8 @@
 """
-AI operator — talk to SureGuard in natural language.
+AI operator — talk to Kerf in natural language.
 
 The assistant maps a user instruction onto the same screens and APIs a human
-would use: open History, send a request to Repeater, arm a scan, start Intruder,
+would use: open History, send a request to Replay, arm a scan, start Payloads,
 save a project, generate a report. It never bypasses the active-scan
 authorization gate.
 
@@ -39,8 +39,10 @@ DEFAULT_UA = (
 )
 
 SCREENS = (
-    "history", "intercept", "repeater", "decoder", "comparer", "sequencer",
-    "findings", "active", "intruder", "projects", "reports", "scope", "setup",
+    "history", "intercept", "repeater", "packets", "logger", "rules",
+    "decoder", "comparer", "sequencer", "analyzer",
+    "findings", "active", "intruder", "oast",
+    "projects", "reports", "scope", "setup",
 )
 
 PROVIDERS = {
@@ -102,15 +104,15 @@ PROVIDERS = {
     },
 }
 
-SYSTEM_PROMPT = """You are SureGuard's operator. SureGuard is a local web-security
+SYSTEM_PROMPT = """You are Kerf's operator. Kerf is a local web-security
 proxy and testing toolkit. The user tells you what they want; you pick the right
 screen and call tools to do it.
 
 Rules:
 - Always navigate to the screen the user will want to see after the action.
-- Only authorize an active scan or Intruder when the user names the host(s) they
+- Only authorize Scan or Payloads when the user names the host(s) they
   are allowed to test. Never invent a scope.
-- Active scan and Intruder send crafted requests. Refuse if the user has not
+- Scan and Payloads send crafted requests. Refuse if the user has not
   asserted authorization for those hosts.
 - Prefer existing captured traffic (list_history / inspect_flow) over inventing
   requests. "Last request" means the most recent history entry.
@@ -125,7 +127,7 @@ Rules:
 Playbook — finish the job:
 When the user says to scan a host or site (e.g. "scan sehgal.ca"):
   1. If they named the host, authorize it (they asserted they may test it).
-  2. Open the Active scan screen.
+  2. Open the Scan screen.
   3. Call scan_host so captured in-scope history is queued, not just one request.
   4. Wait for the job result and summarize findings in plain language.
 When they say "scan the last / this request", use run_active_scan on that flow.
@@ -139,7 +141,7 @@ authorize a host — do not stop after authorize-only when they also asked to sc
 TOOLS = [
     {
         "name": "navigate",
-        "description": "Open a SureGuard screen so the user can see the result.",
+        "description": "Open a Kerf screen so the user can see the result.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -183,7 +185,7 @@ TOOLS = [
     },
     {
         "name": "send_to_repeater",
-        "description": "Open Repeater with a captured request loaded.",
+        "description": "Open Replay with a captured request loaded.",
         "parameters": {
             "type": "object",
             "properties": {"flow_id": {"type": "string"}},
@@ -192,7 +194,7 @@ TOOLS = [
     },
     {
         "name": "send_repeater",
-        "description": "Send a raw HTTP request through Repeater.",
+        "description": "Send a raw HTTP request through Replay.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -232,7 +234,7 @@ TOOLS = [
     },
     {
         "name": "compare",
-        "description": "Diff two strings and open Comparer.",
+        "description": "Diff two strings and open Compare.",
         "parameters": {
             "type": "object",
             "properties": {"a": {"type": "string"}, "b": {"type": "string"}},
@@ -241,7 +243,7 @@ TOOLS = [
     },
     {
         "name": "analyze_tokens",
-        "description": "Measure token entropy in Sequencer. One sample per list item.",
+        "description": "Measure token entropy in Tokens. One sample per list item.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -317,7 +319,7 @@ TOOLS = [
     },
     {
         "name": "open_browser",
-        "description": "Open SureGuard's isolated Chromium, already pointed at the proxy.",
+        "description": "Open Kerf's isolated Chromium, already pointed at the proxy.",
         "parameters": {"type": "object", "properties": {}},
     },
     {
@@ -327,12 +329,12 @@ TOOLS = [
     },
     {
         "name": "list_payload_sets",
-        "description": "Named payload lists Intruder can use.",
+        "description": "Named payload lists Payloads can use.",
         "parameters": {"type": "object", "properties": {}},
     },
     {
         "name": "start_intruder",
-        "description": "Start an Intruder attack. Mark positions in the template with §. Scope must be armed.",
+        "description": "Start a Payloads attack. Mark positions in the template with §. Scope must be armed.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -959,20 +961,27 @@ class Assistant:
         for screen, aliases in (
             ("history", ("history", "proxy", "traffic")),
             ("intercept", ("intercept", "proxy intercept")),
-            ("repeater", ("repeater",)),
-            ("decoder", ("decoder", "decode", "encoder")),
-            ("comparer", ("comparer", "compare", "diff")),
-            ("sequencer", ("sequencer", "entropy", "tokens")),
+            ("repeater", ("replay", "repeater")),
+            ("decoder", ("encode", "decoder", "decode", "encoder")),
+            ("comparer", ("compare", "comparer", "diff")),
+            ("sequencer", ("tokens", "sequencer", "entropy")),
             ("findings", ("findings", "passive")),
-            ("active", ("active scan", "active scanner", "scanner")),
-            ("intruder", ("intruder",)),
+            ("active", ("open scan", "go to scan", "active scan", "scanner")),
+            ("intruder", ("payloads", "intruder", "fuzz")),
+            ("packets", ("capture", "packets")),
+            ("logger", ("log", "logger", "events")),
+            ("rules", ("rewrite", "rules")),
+            ("analyzer", ("endpoints", "analyzer")),
             ("projects", ("projects", "project")),
             ("reports", ("report", "reports")),
             ("scope", ("scope",)),
             ("setup", ("setup", "settings", "certificate", "ca cert")),
         ):
-            if re.search(rf"\b(open|go to|show|take me to|switch to)\b.*\b{re.escape(aliases[0])}", low) \
-                    or (low in aliases) or low == f"open {aliases[0]}":
+            if any(
+                re.search(rf"\b(open|go to|show|take me to|switch to)\b.*\b{re.escape(a)}", low)
+                or low == a or low == f"open {a}"
+                for a in aliases
+            ):
                 calls.append(("navigate", {"screen": screen}))
                 return calls
 
@@ -1031,7 +1040,8 @@ class Assistant:
                 calls.append(("scan_host", {"host": host}))
                 return calls
 
-        if "repeater" in low and ("send" in low or "last" in low or "this" in low):
+        if any(w in low for w in ("replay", "repeater")) and (
+                "send" in low or "last" in low or "this" in low):
             flow = self._latest_flow()
             if flow:
                 calls.append(("send_to_repeater", {"flow_id": flow["id"]}))
@@ -1119,14 +1129,14 @@ class Assistant:
                 bits.append("Intercept " + ("on." if r.get("enabled") else "off.")
                             + (f" {len(r.get('held') or [])} held." if r.get("held") else ""))
             elif a["tool"] == "open_browser":
-                bits.append("Opened the SureGuard browser." if r.get("ok")
+                bits.append("Opened the Kerf browser." if r.get("ok")
                             else (r.get("error") or "Could not open the browser."))
             elif a["tool"] == "authorize_active_scan":
                 bits.append("Scanner armed for " + ", ".join(r.get("scope") or []) + ".")
             elif a["tool"] == "send_to_repeater":
-                bits.append(f"Loaded {r.get('url')} into Repeater.")
+                bits.append(f"Loaded {r.get('url')} into Replay.")
             elif a["tool"] == "decode":
-                bits.append("Decoded. Result is in Decoder.")
+                bits.append("Decoded. Result is in Encode.")
             elif a["tool"] == "save_project":
                 bits.append(f"Saved project {r.get('name')}.")
             elif a["tool"] == "load_project":
@@ -1345,8 +1355,8 @@ class Assistant:
             if cfg["api_key"]:
                 headers["Authorization"] = f"Bearer {cfg['api_key']}"
             if cfg["id"] == "openrouter":
-                headers["HTTP-Referer"] = "https://sureguard.local"
-                headers["X-Title"] = "SureGuard"
+                headers["HTTP-Referer"] = "https://kerf.local"
+                headers["X-Title"] = "Kerf"
             body: dict[str, Any] = {
                 "model": cfg["model"],
                 "messages": self._openai_wire_messages(messages),

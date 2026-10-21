@@ -583,7 +583,7 @@ class ActiveScanEngine:
     async def scan_flow(self, flow: Flow) -> list:
         if not self.authorized:
             raise PermissionError(
-                "Active scan refused: no authorized scope set. Authorize the "
+                "Scan refused: no authorized scope set. Authorize the "
                 "target host(s) first (you must be allowed to test them).")
         if not self._in_scope(flow.request.url):
             return []
@@ -636,7 +636,7 @@ class ActiveScanEngine:
     def start_job(self, host: str, flows: list) -> dict:
         if not self.authorized:
             raise PermissionError(
-                "Active scan refused: no authorized scope set.")
+                "Scan refused: no authorized scope set.")
         host = host.strip().lower()
         if not any(host == s or host.endswith("." + s) for s in self.scope_hosts):
             raise PermissionError(f"{host} is not in the authorized active scope.")

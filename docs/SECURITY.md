@@ -2,7 +2,7 @@
 
 ## Authorization is a precondition, not a suggestion
 
-SureGuard intercepts and can replay HTTP/HTTPS traffic. Run it only against:
+Kerf intercepts and can replay HTTP/HTTPS traffic. Run it only against:
 
 - systems you own, or
 - systems you have **explicit, written permission** to test (a signed scope /
@@ -10,8 +10,9 @@ SureGuard intercepts and can replay HTTP/HTTPS traffic. Run it only against:
 
 Intercepting traffic you're not party to, or probing systems you don't control,
 may violate laws including the US Computer Fraud and Abuse Act, Canada's Criminal
-Code (s. 342.1), the UK Computer Misuse Act, and equivalents elsewhere. The MIT
-license disclaims liability; it does not grant you permission to test anything.
+Code (s. 342.1), the UK Computer Misuse Act, and equivalents elsewhere. The
+Kerf Personal Use License disclaims liability; it does not grant you
+permission to test anything.
 
 ## How TLS interception works here (and its limits)
 
@@ -41,5 +42,6 @@ Those are left to operators for authorized engagements. See
 
 ## Reporting a vulnerability in this tool
 
-If you find a security issue in SureGuard itself, open a private advisory on
-the project's repository rather than a public issue.
+If you find a security issue in Kerf itself, email
+[accounts@kerf.software](mailto:accounts@kerf.software) or open a
+private GitHub advisory. Do not file a public issue.

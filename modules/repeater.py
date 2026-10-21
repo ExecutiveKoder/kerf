@@ -1,6 +1,6 @@
 """
-Repeater: edit a single request and replay it, repeatedly, inspecting each
-response. This is manual testing you drive yourself against a target you choose.
+Replay: edit a single request and send it again, inspecting each response.
+This is manual testing you drive yourself against a target you choose.
 
 It reuses the proxy's own upstream code path so a replayed request behaves
 exactly like a proxied one.

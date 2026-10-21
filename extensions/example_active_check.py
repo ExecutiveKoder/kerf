@@ -1,7 +1,7 @@
 """
-Example BApp-style extension built on the active-scan API.
+Example extension built on the active-scan API.
 
-This demonstrates the capabilities that used to sit behind Pro-only APIs:
+This shows how a plugin can:
 registering an active check, contributing a payload set, and adding an entry to
 the scan-issue library. It loads automatically from the extensions directory.
 

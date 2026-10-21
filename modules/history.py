@@ -3,7 +3,7 @@ HTTP history: an Addon that records every completed flow to SQLite and serves
 search/filter queries for the UI.
 
 Stores request/response metadata plus raw bytes so flows can be replayed in
-Repeater or re-examined later. Scope filtering is applied at query time.
+Replay or re-examined later. Scope filtering is applied at query time.
 """
 
 from __future__ import annotations

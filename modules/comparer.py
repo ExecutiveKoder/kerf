@@ -1,5 +1,5 @@
 """
-Comparer: word- and byte-level diffing of two requests or responses, so you can
+Compare: word- and byte-level diffing of two requests or responses, so you can
 spot what changed between two flows (e.g. a valid vs invalid login response).
 """
 

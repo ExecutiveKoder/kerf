@@ -1,8 +1,8 @@
 """
-Intruder — automated, payload-driven request attacks.
+Payloads — automated, payload-driven request attacks.
 
 You mark one or more insertion positions in a request template and point a set of
-payloads at them. Intruder generates one request per payload combination, fires
+payloads at them. Kerf generates one request per payload combination, fires
 them (optionally at full concurrency with no throttle), and tabulates the
 responses so anomalies in status, length, timing, or content stand out.
 
@@ -17,7 +17,7 @@ Attack types mirror the classic four:
   * pitchfork     — N payload sets, advanced in lockstep.
   * cluster-bomb  — N payload sets, full cartesian product.
 
-Like the active scanner, Intruder is attack automation, so it honors the same
+Like Scan, Payloads is attack automation, so it honors the same
 authorization gate: the target host must be in an authorized scope.
 """
 
@@ -119,7 +119,7 @@ def _estimate(attack_type: str, bases, sets) -> int:
 # --------------------------------------------------------------------------- #
 
 class IntruderEngine:
-    """Runs Intruder attacks and stores their results in memory."""
+    """Runs Payloads attacks and stores their results in memory."""
 
     def __init__(self, send_raw_coro, *, authz=None, hard_cap: int = 20000) -> None:
         # send_raw_coro(raw, scheme) -> Flow (reuses the proxy upstream path).
@@ -176,8 +176,8 @@ class IntruderEngine:
         url = self._base_url(template, scheme)
         if self._authz and not self._authz(url):
             raise PermissionError(
-                "Intruder refused: target host is not in an authorized scope. "
-                "Authorize it under Active scan / Scope first.")
+                "Payloads refused: target host is not in an authorized scope. "
+                "Authorize it under Scan / Scope first.")
 
         sets = self._resolve_sets(attack_type, len(bases), set_names, custom)
         total = min(_estimate(attack_type, bases, sets), self.hard_cap)

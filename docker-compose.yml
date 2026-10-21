@@ -1,0 +1,27 @@
+# Personal use only. See LICENSE.
+# First run builds the image and installs Python deps.
+# After that: docker compose up -d
+services:
+  kerf:
+    build: .
+    image: kerf:local
+    ports:
+      - "8000:8000"
+      - "8080:8080"
+    environment:
+      DASTDAY_HOME: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s

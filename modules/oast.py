@@ -3,7 +3,7 @@ Local out-of-band listener.
 
 Records HTTP callbacks on a port you choose. Useful when an authorized target
 can reach this machine (or a tunnel you run). This is a callback log, not a
-public collaborator network and not an exploit recipe.
+public hosted callback network and not an exploit recipe.
 """
 
 from __future__ import annotations

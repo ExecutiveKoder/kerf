@@ -1,10 +1,11 @@
 [project]
-name = "dastday"
+name = "kerf"
 version = "0.1.0"
-description = "SureGuard — open-source clean-room web security proxy and testing toolkit"
+description = "Kerf — personal-use web security proxy. No commercial use, no redistribution."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "Kerf Personal Use License" }
+authors = [{ name = "Smashrock Media Inc" }]
 dependencies = [
     "cryptography>=42.0",
     "fastapi>=0.110",
@@ -15,9 +16,11 @@ dependencies = [
     "python-socks>=2.4",
     "h2>=4.1",
     "pyyaml>=6.0",
+    "stripe>=11.0",
 ]
 
 [project.scripts]
+kerf = "main:main"
 dastday = "main:main"
 
 [tool.pytest.ini_options]

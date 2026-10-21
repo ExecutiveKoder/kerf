@@ -1,21 +1,44 @@
-MIT License
+Kerf Personal Use License
+Copyright (c) 2026 Smashrock Media Inc
 
-Copyright (c) 2026 DastDay contributors
+This is not an open-source license. The source is available so you can
+run and inspect Kerf. It does not grant the rights an OSI-approved
+license would.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Personal use
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   You may download Kerf from the official repository, run it, and
+   privately modify it, solely for your own personal, non-commercial
+   purposes, on systems you own or have written authorization to test.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. No commercial use
+
+   You may not use Kerf for paid work, an employer, a client
+   engagement, a product, a service, or any other commercial
+   advantage. For a commercial license, email accounts@kerf.software.
+
+3. No redistribution
+
+   You may not publish, share, sublicense, sell, rent, host, or
+   otherwise redistribute Kerf, in original or modified form. That
+   includes public forks, mirrors, bundling it in another product,
+   and offering it as a hosted service. Obtaining a copy from the
+   official repository for your own personal use is not redistribution.
+
+4. Reservation of rights
+
+   All rights not expressly granted are reserved by the copyright
+   holders. This license does not grant permission to intercept,
+   scan, or test any system. You remain solely responsible for
+   staying inside the law and your authorization.
+
+5. Warranty disclaimer
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+   HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.

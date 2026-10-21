@@ -67,6 +67,7 @@ class ProxyServer:
         self.interceptor = interceptor or Interceptor()
         self.upstream = None
         self.events = None
+        self.gate = None  # optional callable: False → refuse traffic
         self.ws_log: list[dict] = []
         self._last_tls: dict | None = None
         self._server: asyncio.AbstractServer | None = None
@@ -85,9 +86,36 @@ class ProxyServer:
 
     # -------------------------------------------------------------- client
 
+    async def _write_locked(self, writer) -> None:
+        body = (
+            "Kerf is locked. Attest personal, non-commercial use in the UI. "
+            "For commercial use, email accounts@kerf.software."
+        ).encode()
+        writer.write(
+            (
+                "HTTP/1.1 403 Forbidden\r\n"
+                "Content-Type: text/plain; charset=utf-8\r\n"
+                f"Content-Length: {len(body)}\r\n"
+                "Connection: close\r\n\r\n"
+            ).encode() + body
+        )
+        await writer.drain()
+
+    def _unlocked(self) -> bool:
+        gate = self.gate
+        if gate is None:
+            return True
+        try:
+            return bool(gate())
+        except Exception:
+            return False
+
     async def _handle_client(self, reader: asyncio.StreamReader,
                              writer: asyncio.StreamWriter) -> None:
         try:
+            if not self._unlocked():
+                await self._write_locked(writer)
+                return
             request_line = await reader.readline()
             if not request_line:
                 writer.close()
@@ -142,18 +170,18 @@ class ProxyServer:
     async def _write_help(self, writer) -> None:
         body = (
             "<!doctype html><meta charset=utf-8>"
-            "<title>SureGuard proxy</title>"
+            "<title>Kerf proxy</title>"
             "<body style='font-family:system-ui;max-width:640px;margin:48px auto;"
             "color:#1a2234;line-height:1.5'>"
-            "<h2>This is the SureGuard proxy port</h2>"
+            "<h2>This is the Kerf proxy port</h2>"
             "<p>You reached the proxy directly. It's meant to be set as your browser's "
             "<b>HTTP/HTTPS proxy</b>, not opened in the address bar.</p>"
             "<ol><li>Open the <b>web UI</b> on the UI port (default "
             "<code>127.0.0.1:8000</code>).</li>"
             "<li>In your browser/OS network settings, set the HTTP and HTTPS proxy to "
             f"<code>{self.host}:{self.port}</code>.</li>"
-            "<li>Install the SureGuard CA from the UI's Setup tab so HTTPS validates.</li>"
-            "<li>Browse normally; traffic appears under Proxy history.</li></ol>"
+            "<li>Install the Kerf CA from the UI's Setup tab so HTTPS validates.</li>"
+            "<li>Browse normally; traffic appears under History.</li></ol>"
             "</body>")
         resp = (
             "HTTP/1.1 421 Misdirected Request\r\n"
@@ -280,7 +308,7 @@ class ProxyServer:
                 if resp is None:
                     resp = HttpResponse(403, "Forbidden",
                                         [("Content-Type", "text/plain")],
-                                        b"SureGuard: dropped by intercept.\n",
+                                        b"Kerf: dropped by intercept.\n",
                                         "HTTP/2")
                 writer.write(srv.send_response(sid, resp))
                 await writer.drain()
@@ -353,7 +381,7 @@ class ProxyServer:
             pass
 
     async def _write_dropped(self, writer, kind: str) -> None:
-        body = f"SureGuard: {kind} dropped by intercept.\n".encode()
+        body = f"Kerf: {kind} dropped by intercept.\n".encode()
         writer.write(
             b"HTTP/1.1 403 Forbidden\r\n"
             b"Content-Type: text/plain; charset=utf-8\r\n"
@@ -412,13 +440,13 @@ class ProxyServer:
         if not host:
             return HttpResponse(400, "Bad Request",
                                 [("Content-Type", "text/plain")],
-                                (b"SureGuard: no target host in the request. If you are "
-                                 b"using Repeater, include a 'Host:' header. If this came "
-                                 b"from a browser, set SureGuard as the proxy rather than "
+                                (b"Kerf: no target host in the request. If you are "
+                                 b"using Replay, include a 'Host:' header. If this came "
+                                 b"from a browser, set Kerf as the proxy rather than "
                                  b"connecting to it directly."))
         up_reader, up_writer, err = await self._open_upstream(req)
         if up_reader is None:
-            detail = f"SureGuard upstream error: {err}" if err else "SureGuard upstream error"
+            detail = f"Kerf upstream error: {err}" if err else "Kerf upstream error"
             return HttpResponse(502, "Bad Gateway",
                                 [("Content-Type", "text/plain")],
                                 detail.encode())

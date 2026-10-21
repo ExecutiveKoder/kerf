@@ -1,6 +1,6 @@
 """
-Decoder/Encoder: transform selected data between common encodings used in web
-traffic. Pure functions, no network. Mirrors Burp's Decoder tab.
+Encode/decode: transform selected data between common encodings used in web
+traffic. Pure functions, no network.
 """
 
 from __future__ import annotations

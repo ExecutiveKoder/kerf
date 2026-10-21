@@ -118,7 +118,7 @@ def export_har(rows: list[dict]) -> dict:
     return {
         "log": {
             "version": "1.2",
-            "creator": {"name": "SureGuard", "version": "0.2"},
+            "creator": {"name": "Kerf", "version": "0.2"},
             "entries": entries,
         }
     }

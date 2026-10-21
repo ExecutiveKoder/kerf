@@ -15,19 +15,22 @@ from pathlib import Path
 from typing import List, Optional
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse, Response
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from core.http_message import Flow
 from modules import decoder, comparer, sequencer, payloads, reporting
-from modules import exportfmt, analyzer, sca, openapi, packets
+from modules import exportfmt, analyzer, sca, openapi, packets, billing
+from modules.brand import NAME, catalog as brand_catalog
 from modules.active_scan import discover_insertion_points
 from modules.assistant import list_providers
 from modules.repeater import Repeater
 
 UI_DIR = Path(__file__).parent / "static"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+LICENSE_FILE = ROOT_DIR / "LICENSE"
 
 
 # ----------------------------------------------------------- body models
@@ -204,6 +207,66 @@ class AnalyzerReq(BaseModel):
     host: str = ""
 
 
+class LicenseBody(BaseModel):
+    key: str = ""
+    attest: bool = False
+
+
+class CheckoutBody(BaseModel):
+    plan: str
+    email: str = ""
+    return_url: str = ""
+
+
+class ClaimBody(BaseModel):
+    session_id: str
+    install: bool = True
+
+
+class BillingConfigBody(BaseModel):
+    stripe_secret: Optional[str] = None
+    public_url: Optional[str] = None
+    webhook_secret: Optional[str] = None
+
+
+class GiftBody(BaseModel):
+    email: str
+    plan: str = "personal"
+    days: int = 365
+    seats: int = 1
+
+
+class CloudBody(BaseModel):
+    hosted_oast: Optional[str] = None
+    hosted_ai_url: Optional[str] = None
+    hosted_ai_key: Optional[str] = None
+    vault_url: Optional[str] = None
+    vault_token: Optional[str] = None
+    sca_watch_path: Optional[str] = None
+
+
+class TeamPackBody(BaseModel):
+    name: str = ""
+
+
+class RepoAddBody(BaseModel):
+    repo: str
+
+
+class RepoIdBody(BaseModel):
+    id: str
+    full: bool = False
+
+
+class RepoStopBody(BaseModel):
+    id: str = ""
+
+
+class RepoCfgBody(BaseModel):
+    token: Optional[str] = None
+    authorized: Optional[bool] = None
+
+
 def _request_from_history(ctx, flow_id: str):
     row = ctx.history.get(flow_id)
     if not row:
@@ -214,7 +277,26 @@ def _request_from_history(ctx, flow_id: str):
 
 def create_app(ctx) -> FastAPI:
     """ctx carries the shared module instances (see dastday.app.AppContext)."""
-    app = FastAPI(title="SureGuard")
+    app = FastAPI(title=NAME)
+
+    @app.middleware("http")
+    async def require_personal_license(request: Request, call_next):
+        path = request.url.path
+        if ctx.licenses.unlocked:
+            return await call_next(request)
+        if path == "/" or path == "/LICENSE" or path.startswith("/static"):
+            return await call_next(request)
+        if path.startswith("/api/license"):
+            return await call_next(request)
+        if path == "/api/status":
+            return await call_next(request)
+        return JSONResponse(
+            {"detail": "Kerf is locked. Accept the Kerf Personal Use License "
+                       "to unlock (no commercial use, no redistribution). "
+                       "For a commercial license, email accounts@kerf.software.",
+             "locked": True},
+            status_code=403,
+        )
 
     # ------------------------------------------------------------- history
 
@@ -315,7 +397,7 @@ def create_app(ctx) -> FastAPI:
                 rows.append(item)
         blob = packets.export_pcap(rows)
         return Response(content=blob, media_type="application/vnd.tcpdump.pcap",
-                        headers={"Content-Disposition": "attachment; filename=sureguard.pcap"})
+                        headers={"Content-Disposition": "attachment; filename=kerf.pcap"})
 
     # ------------------------------------------------------------- scope
 
@@ -534,7 +616,7 @@ def create_app(ctx) -> FastAPI:
             return JSONResponse(data)
         html = reporting.render_html(data)
         return HTMLResponse(html, headers={
-            "Content-Disposition": "attachment; filename=sureguard-report.html"})
+            "Content-Disposition": "attachment; filename=kerf-report.html"})
 
     # --------------------------------------------------------------- CA
 
@@ -707,7 +789,12 @@ def create_app(ctx) -> FastAPI:
 
     @app.get("/api/oast")
     def oast_get():
-        return ctx.oast.public()
+        data = ctx.oast.public()
+        hosted = ctx.cloud.hosted_oast_url()
+        if hosted:
+            data["hosted_url"] = hosted
+        data["can_hosted"] = ctx.licenses.unlocked
+        return data
 
     @app.post("/api/oast/start")
     async def oast_start(body: OastStartReq):
@@ -763,6 +850,51 @@ def create_app(ctx) -> FastAPI:
             "sbom": sca.cyclonedx(packages, findings),
         }
 
+    # ---------------------------------------------------------- github repos
+
+    @app.get("/api/repos")
+    def repos_get():
+        return ctx.repos.public()
+
+    @app.post("/api/repos")
+    def repos_add(body: RepoAddBody):
+        try:
+            return ctx.repos.add(body.repo)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.delete("/api/repos/{repo_id}")
+    def repos_delete(repo_id: str):
+        return ctx.repos.remove(repo_id)
+
+    @app.post("/api/repos/config")
+    def repos_config(body: RepoCfgBody):
+        return ctx.repos.configure(token=body.token, authorized=body.authorized)
+
+    @app.post("/api/repos/scan")
+    async def repos_scan(body: RepoIdBody):
+        try:
+            return await ctx.repos.scan(body.id, full=body.full)
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc))
+        except FileNotFoundError as exc:
+            raise HTTPException(404, str(exc))
+        except Exception as exc:
+            raise HTTPException(502, str(exc))
+
+    @app.post("/api/repos/scan-all")
+    async def repos_scan_all():
+        try:
+            return await ctx.repos.scan_all()
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc))
+        except Exception as exc:
+            raise HTTPException(502, str(exc))
+
+    @app.post("/api/repos/scan/stop")
+    async def repos_scan_stop(body: RepoStopBody):
+        return await ctx.repos.stop(body.id)
+
     # ------------------------------------------------------------- openapi
 
     @app.post("/api/openapi")
@@ -783,6 +915,7 @@ def create_app(ctx) -> FastAPI:
     @app.get("/api/status")
     def status():
         return {
+            "product": NAME,
             "proxy": f"{ctx.proxy.host}:{ctx.proxy.port}",
             "scope": sorted(ctx.interceptor.scope_hosts),
             "extensions": ctx.extensions_loaded,
@@ -802,16 +935,151 @@ def create_app(ctx) -> FastAPI:
             "oast": ctx.oast.public().get("listening"),
             "ws": len(ctx.proxy.ws_log),
             "http2": True,
+            "license": ctx.licenses.public(),
+            "cloud": ctx.cloud.public(),
+            "repos": len(ctx.repos.public().get("repos") or []),
         }
+
+    @app.get("/api/license")
+    def license_get():
+        return {"license": ctx.licenses.public(),
+                "catalog": brand_catalog(),
+                "cloud": ctx.cloud.public(),
+                "billing": billing.available()}
+
+    @app.post("/api/license")
+    def license_install(body: LicenseBody):
+        try:
+            if not body.attest:
+                raise ValueError(
+                    "accept the Kerf Personal Use License to unlock "
+                    "(no commercial use, no redistribution). "
+                    "For a commercial license, email accounts@kerf.software.")
+            return ctx.licenses.attest()
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.delete("/api/license")
+    def license_clear():
+        ctx.licenses.clear()
+        return ctx.licenses.public()
+
+    @app.get("/api/billing/catalog")
+    def billing_catalog():
+        return {"plans": brand_catalog(), "billing": billing.available()}
+
+    @app.post("/api/billing/config")
+    def billing_config(body: BillingConfigBody):
+        return billing.configure(body.model_dump())
+
+    @app.post("/api/billing/enable")
+    def billing_enable():
+        try:
+            return billing.enable()
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post("/api/billing/gift")
+    def billing_gift(body: GiftBody):
+        try:
+            return billing.gift(email=body.email, plan=body.plan,
+                                days=body.days, seats=body.seats)
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.get("/api/billing/sales")
+    def billing_sales():
+        return {"issued": billing.ledger(), "billing": billing.available()}
+
+    @app.post("/api/billing/tunnel")
+    def billing_tunnel_start(request: Request):
+        try:
+            return billing.start_tunnel(str(request.base_url).rstrip("/"))
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.delete("/api/billing/tunnel")
+    def billing_tunnel_stop():
+        return billing.stop_tunnel()
+
+    @app.get("/pay/{plan}")
+    async def billing_pay(plan: str, request: Request):
+        dest = str(request.base_url).rstrip("/")
+        try:
+            session = await billing.checkout(plan, return_url=dest)
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+        return RedirectResponse(session["url"], status_code=303)
+
+    @app.post("/api/billing/checkout")
+    async def billing_checkout(body: CheckoutBody, request: Request):
+        dest = body.return_url or str(request.base_url).rstrip("/")
+        try:
+            return await billing.checkout(body.plan, body.email, return_url=dest)
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post("/api/billing/claim")
+    async def billing_claim(body: ClaimBody):
+        try:
+            store = ctx.licenses if body.install else None
+            info = await billing.claim(body.session_id, store)
+            key = info.get("key") or ""
+            if body.install and key and not info.get("license"):
+                ctx.licenses.install(key, attest=True)
+                info["license"] = ctx.licenses.public()
+            return info
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post("/api/billing/webhook")
+    async def billing_webhook(request: Request):
+        raw = await request.body()
+        try:
+            return await billing.handle_webhook(
+                raw, request.headers.get("stripe-signature", ""))
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.post("/api/cloud")
+    def cloud_set(body: CloudBody):
+        return ctx.cloud.configure(body.model_dump())
+
+    @app.post("/api/team/pack")
+    def team_pack(body: TeamPackBody):
+        try:
+            data = ctx.cloud.team_pack(ctx.projects, body.name)
+        except PermissionError as exc:
+            raise HTTPException(402, str(exc))
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+        return Response(data, media_type="application/zip",
+                        headers={"Content-Disposition":
+                                 'attachment; filename="kerf-team.zip"'})
+
+    @app.post("/api/team/vault")
+    async def team_vault(body: TeamPackBody):
+        try:
+            return await ctx.cloud.vault_put(ctx.projects, body.name)
+        except PermissionError as exc:
+            raise HTTPException(402, str(exc))
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
 
     # --------------------------------------------------------------- UI
 
     if UI_DIR.exists():
         app.mount("/static", StaticFiles(directory=str(UI_DIR)), name="static")
 
+    @app.get("/LICENSE", response_class=PlainTextResponse)
+    def license_text():
+        if not LICENSE_FILE.exists():
+            raise HTTPException(404, "LICENSE file is missing")
+        return LICENSE_FILE.read_text()
+
     @app.get("/", response_class=HTMLResponse)
     def index():
         idx = UI_DIR / "index.html"
-        return idx.read_text() if idx.exists() else "<h1>SureGuard</h1>"
+        return idx.read_text() if idx.exists() else f"<h1>{NAME}</h1>"
 
     return app

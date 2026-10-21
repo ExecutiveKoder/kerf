@@ -7,3 +7,4 @@ playwright>=1.49
 python-socks>=2.4
 h2>=4.1
 pyyaml>=6.0
+stripe>=11.0

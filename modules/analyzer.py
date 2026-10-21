@@ -1,5 +1,5 @@
 """
-Target analyzer and engagement finds.
+Endpoints: parameters and engagement finds from captured history.
 
 Reads captured history only. Surfaces parameters, methods, comments, hidden
 fields, and script URLs — the mapping work testers otherwise do by hand.

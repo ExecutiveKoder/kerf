@@ -4,9 +4,15 @@ __pycache__/
 *.db-journal
 *.db-wal
 .dastday/
+data/
 *.pem
+*.attest
+keys/*.pem
+keys/*.key
+license-ed25519.pem
 .venv/
 venv/
+site/.env
 .pytest_cache/
 .DS_Store
 *.egg-info/

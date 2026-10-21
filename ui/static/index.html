@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SureGuard</title>
-<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<title>Kerf</title>
+<link rel="icon" href="/static/favicon.svg?v=3" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/favicon.svg?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -34,7 +35,7 @@
     --m-get: #5fb0e8; --m-post: #7dd3a8; --m-put: #d8b36a;
     --m-del: #e8807f; --m-other: #b79ae0;
     --s2: #6fcf97; --s3: #6aa8e8; --s4: #e0b25a; --s5: #e8807f;
-    --sev-high: #ef6f6c; --sev-med: #e4b24f; --sev-low: #6aa8e8; --sev-info: #7e8aa6;
+    --sev-critical: #c43d3a; --sev-high: #ef6f6c; --sev-med: #e4b24f; --sev-low: #6aa8e8; --sev-info: #7e8aa6;
     --ok: #6fcf97; --warn: #e4b24f; --bad: #ef6f6c;
     --ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
@@ -199,8 +200,37 @@
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
           padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
   .card h3 { margin: 0 0 4px; font-size: 13.5px; font-weight: 700; }
+  .card a { color: var(--accent); }
   .card .sub { color: var(--ink-dim); font-size: 12px; margin-bottom: 12px; }
   .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .plan-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .plan-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface-2); }
+  .plan-card.paid { border-color: rgba(240,168,80,.45); }
+  .plan-card h4 { margin: 0 0 2px; font-size: 14px; }
+  .plan-card .price { color: var(--accent); font-weight: 700; margin-bottom: 6px; }
+  .plan-card ul { margin: 8px 0 12px; padding-left: 16px; color: var(--ink-dim); }
+  .plan-card li { margin: 3px 0; }
+  .lic-pill { display:inline-block; margin-top:6px; font-size:10.5px; font-weight:700;
+              letter-spacing:.04em; text-transform:uppercase; color: var(--accent);
+              border: 1px solid rgba(240,168,80,.35); border-radius: 999px; padding: 1px 8px; }
+  h3 .lic-pill { margin-top: 0; margin-left: 8px; vertical-align: middle; }
+  #license-gate {
+    display: none; position: fixed; inset: 0; z-index: 80;
+    background: var(--ground); color: var(--ink);
+    align-items: center; justify-content: center; padding: 32px;
+  }
+  body.app-locked #license-gate { display: flex; }
+  body.app-locked .rail, body.app-locked main, body.app-locked .statusbar {
+    visibility: hidden;
+  }
+  .gate-card { width: min(560px, 100%); }
+  .gate-card h1 { margin: 0 0 8px; font-size: 22px; }
+  .gate-card .lead { color: var(--ink-dim); margin: 0 0 18px; }
+  .gate-terms { margin: 0 0 16px; padding-left: 18px; color: var(--ink-dim); font-size: 13px; line-height: 1.45; }
+  .gate-terms li { margin: 6px 0; }
+  .gate-card textarea { min-height: 110px; width: 100%; font-family: var(--mono); font-size: 12px; }
+  .gate-card .chk { white-space: normal; align-items: flex-start; margin: 14px 0; line-height: 1.45; }
+  .gate-card a, .notice a { color: var(--accent); }
 
   /* history split */
   .hist { display: grid; grid-template-columns: 220px 1fr; flex: 1; min-height: 0;
@@ -285,17 +315,19 @@
   /* findings */
   .finding { border: 1px solid var(--line); border-left-width: 3px; border-radius: 10px;
              padding: 14px 16px; margin-bottom: 11px; background: var(--surface); box-shadow: var(--shadow); }
+  .finding.critical { border-left-color: var(--sev-critical); }
   .finding.high { border-left-color: var(--sev-high); }
   .finding.medium { border-left-color: var(--sev-med); }
   .finding.low { border-left-color: var(--sev-low); }
-  .finding.info { border-left-color: var(--sev-info); }
+  .finding.info, .finding.unknown { border-left-color: var(--sev-info); }
   .finding .ft { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .sev { font-family: var(--mono); font-size: 10px; font-weight: 700;
          padding: 3px 9px; border-radius: 6px; letter-spacing: 0.6px; }
+  .sev.critical { background: rgba(196,61,58,.18); color: var(--sev-critical); }
   .sev.high { background: rgba(239,111,108,.16); color: var(--sev-high); }
   .sev.medium { background: rgba(228,178,79,.16); color: var(--sev-med); }
   .sev.low { background: rgba(106,168,232,.16); color: var(--sev-low); }
-  .sev.info { background: rgba(126,138,166,.16); color: var(--sev-info); }
+  .sev.info, .sev.unknown { background: rgba(126,138,166,.16); color: var(--sev-info); }
   .conf { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
           border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
   .finding .title { font-weight: 700; font-size: 13.5px; }
@@ -306,6 +338,18 @@
   .finding .kv code { font-family: var(--mono); background: var(--ground); padding: 1px 6px; border-radius: 5px; color: var(--accent-2); }
   .finding .rem { margin-top: 10px; padding: 10px 12px; background: rgba(111,207,151,.07);
                   border: 1px solid rgba(111,207,151,.18); border-radius: 8px; font-size: 12.5px; color: var(--ink-dim); }
+  .finding.clickable { cursor: pointer; }
+  .finding.clickable:hover { border-color: var(--ink-faint); }
+  .finding .chev { margin-left: 8px; color: var(--ink-faint); font-size: 11px; transition: transform .14s; }
+  .finding.open .chev { transform: rotate(90deg); }
+  .finding .more { display: none; margin-top: 12px; }
+  .finding.open .more { display: block; }
+  .finding .more .why { color: var(--ink-dim); font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+  .finding .more .why b, .finding .rem b { display: block; color: var(--ink); margin-bottom: 4px; }
+  .finding .rem ol { margin: 6px 0 0; padding-left: 18px; }
+  .finding .rem li { margin: 4px 0; }
+  .finding .refs { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .finding .refs a { font-family: var(--mono); font-size: 11px; color: var(--accent); }
 
   .sevbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .sevchip { display: flex; align-items: center; gap: 9px; background: var(--surface);
@@ -341,6 +385,9 @@
   .chiplist { display:flex; gap:7px; flex-wrap:wrap; }
   .pill { font-family:var(--mono); font-size:11px; padding:4px 10px; border-radius:20px;
           background: var(--surface-2); border:1px solid var(--line); color: var(--ink-dim); }
+  .card.rp-on { border-color: rgba(240,168,80,.5); }
+  .rp-name { cursor: pointer; }
+  .rp-name:hover { color: var(--accent); }
 
   .diff .ins { color: var(--m-post); background: rgba(125,211,168,.12); border-radius: 3px; }
   .diff .del { color: var(--m-del); background: rgba(232,128,127,.12); text-decoration: line-through; border-radius: 3px; }
@@ -379,6 +426,12 @@
   .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
            box-shadow: 0 0 0 0 rgba(111,207,151,.6); animation: pulse 2.4s infinite; }
   @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(111,207,151,.5)} 70%{box-shadow:0 0 0 7px rgba(111,207,151,0)} 100%{box-shadow:0 0 0 0 rgba(111,207,151,0)} }
+  .spin { display:inline-block; width:11px; height:11px; border:2px solid var(--line);
+          border-top-color:var(--accent); border-radius:50%;
+          animation:spin .7s linear infinite; vertical-align:-2px; margin-right:7px; }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  .card.scanning { border-color: rgba(240,168,80,.45); }
+  .scan-live { color: var(--accent); font-weight: 600; }
 
   @media (max-width: 820px) {
     body { grid-template-columns: 1fr; grid-template-rows: auto 1fr 28px;
@@ -388,7 +441,7 @@
     .nav { display: flex; padding: 6px; }
     .nav .group { display: none; }
     .nav button.active::before { display: none; }
-    .split, .cols, .grid2, .hist { grid-template-columns: 1fr; }
+    .split, .cols, .grid2, .hist, .plan-grid { grid-template-columns: 1fr; }
     .assistant.open { width: 100%; position:absolute; inset:0; z-index:5; }
     .work { position: relative; }
   }
@@ -397,17 +450,18 @@
   ::-webkit-scrollbar-track { background: transparent; }
 </style>
 </head>
-<body>
+<body class="app-locked">
   <aside class="rail">
     <div class="brand">
-      <div class="name"><img class="logo-img" src="/static/logo.svg" alt="">SureGuard</div>
+      <div class="name"><img class="logo-img" src="/static/logo.svg" alt="">Kerf</div>
       <div class="sub">authorized web security</div>
+      <div class="lic-pill" id="lic-pill">Locked</div>
     </div>
     <nav class="nav" id="nav">
       <div class="group">Traffic</div>
       <button data-v="history" class="active">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
-        Proxy history <span class="tag" id="nav-flows">0</span>
+        History <span class="tag" id="nav-flows">0</span>
       </button>
       <button data-v="intercept">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -415,36 +469,36 @@
       </button>
       <button data-v="repeater">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Repeater
+        Replay
       </button>
       <button data-v="packets">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
-        Packets
+        Capture
       </button>
       <button data-v="logger">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-        Logger <span class="tag" id="nav-events">0</span>
+        Log <span class="tag" id="nav-events">0</span>
       </button>
       <button data-v="rules">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="12" r="2"/></svg>
-        Rules
+        Rewrite
       </button>
       <div class="group">Analyze</div>
       <button data-v="decoder">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-        Decoder
+        Encode
       </button>
       <button data-v="comparer">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>
-        Comparer
+        Compare
       </button>
       <button data-v="sequencer">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 4-5"/></svg>
-        Sequencer
+        Tokens
       </button>
       <button data-v="analyzer">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        Analyzer
+        Endpoints
       </button>
       <button data-v="components">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
@@ -457,11 +511,15 @@
       </button>
       <button data-v="active">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
-        Active scan <span class="tag" id="nav-active">0</span>
+        Scan <span class="tag" id="nav-active">0</span>
+      </button>
+      <button data-v="repos">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+        Repos <span class="tag" id="nav-repos">0</span>
       </button>
       <button data-v="intruder">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22v-4M4 12H2M22 12h-6M6 6l-2-2M20 20l-4-4"/><circle cx="12" cy="12" r="3"/></svg>
-        Intruder
+        Payloads
       </button>
       <button data-v="oast">
         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="2"/></svg>
@@ -512,8 +570,8 @@
     <!-- HISTORY -->
     <section class="view active" id="view-history">
       <div class="viewhead"><div class="ht">
-        <h1>Proxy history</h1>
-        <p>Every request routed through the proxy. Filter noise, pick a host from the sitemap, then send a request to Repeater, Active scan, or Intruder.</p>
+        <h1>History</h1>
+        <p>Every request routed through the proxy. Filter noise, pick a host from the map, then send a request to Replay, Scan, or Payloads.</p>
       </div></div>
       <div class="viewbody" style="display:flex; flex-direction:column;">
         <div class="toolbar">
@@ -546,7 +604,7 @@
         </div>
         <div class="hist">
           <div class="sitemap">
-            <div class="pane-head">Sitemap
+            <div class="pane-head">Host map
               <button class="btn sm" style="margin-left:auto" onclick="crawlFromSitemap()">Crawl</button>
             </div>
             <div class="pane-scroll" id="sm-tree"></div>
@@ -562,7 +620,7 @@
             </div>
           </div>
           <div class="pane">
-            <div class="pane-head" id="insp-head">Inspector</div>
+            <div class="pane-head" id="insp-head">Detail</div>
             <div class="pane-scroll" id="insp-body">
               <div class="empty">Select a request to see its raw bytes.</div>
             </div>
@@ -575,22 +633,22 @@
     <!-- PACKETS -->
     <section class="view" id="view-packets">
       <div class="viewhead"><div class="ht">
-        <h1>Packets</h1>
-        <p>Wireshark-style view of reconstructed proxy traffic — list, protocol tree, hex. Display filters and pcap export. This is not a NIC sniff; it is what SureGuard already decrypted.</p>
+        <h1>Capture</h1>
+        <p>Reconstructed proxy traffic — list, headers, hex. Filter and export pcap. This is not a NIC sniff; it is what Kerf already decrypted.</p>
       </div></div>
       <div class="viewbody" style="display:flex; flex-direction:column;">
         <div class="toolbar">
-          <input id="pk-filter" placeholder='display filter  e.g. http.method == POST &amp;&amp; http.status &gt;= 400' style="flex:1; min-width:240px" onkeydown="if(event.key==='Enter')loadPackets()">
+          <input id="pk-filter" placeholder='filter  e.g. http.method == POST &amp;&amp; http.status &gt;= 400' style="flex:1; min-width:240px" onkeydown="if(event.key==='Enter')loadPackets()">
           <button class="btn primary" onclick="loadPackets()">Apply</button>
           <button class="btn" onclick="$('#pk-filter').value=''; loadPackets()">Clear</button>
-          <button class="btn" onclick="followStream()">Follow stream</button>
+          <button class="btn" onclick="followStream()">Follow conversation</button>
           <button class="btn" onclick="showConversations()">Conversations</button>
           <button class="btn" onclick="exportPcap()">Export pcap</button>
           <span class="meta" id="pk-meta"></span>
         </div>
         <div class="shark">
           <div class="pane">
-            <div class="pane-head">Packet list</div>
+            <div class="pane-head">List</div>
             <div class="pane-scroll">
               <table>
                 <thead><tr><th>No</th><th>Time</th><th>Source</th><th>Destination</th><th>Proto</th><th>Len</th><th>Info</th></tr></thead>
@@ -600,11 +658,11 @@
           </div>
           <div class="shark-bot">
             <div class="pane">
-              <div class="pane-head" id="pk-tree-h">Packet details</div>
-              <div class="pane-scroll tree" id="pk-tree"><div class="empty">Select a packet.</div></div>
+              <div class="pane-head" id="pk-tree-h">Headers</div>
+              <div class="pane-scroll tree" id="pk-tree"><div class="empty">Select a row.</div></div>
             </div>
             <div class="pane">
-              <div class="pane-head">Packet bytes</div>
+              <div class="pane-head">Hex</div>
               <div class="pane-scroll hex" id="pk-hex"></div>
             </div>
           </div>
@@ -659,7 +717,7 @@
     <!-- REPEATER -->
     <section class="view" id="view-repeater">
       <div class="viewhead"><div class="ht">
-        <h1>Repeater</h1>
+        <h1>Replay</h1>
         <p>Edit one request and send it again. Probe how a target responds to small changes, on systems you are authorized to test.</p>
       </div></div>
       <div class="viewbody">
@@ -691,7 +749,7 @@ Accept-Language: en-US,en;q=0.9
     <!-- DECODER -->
     <section class="view" id="view-decoder">
       <div class="viewhead"><div class="ht">
-        <h1>Decoder</h1>
+        <h1>Encode</h1>
         <p>Transform selected data between the encodings you meet in web traffic.</p>
       </div></div>
       <div class="viewbody">
@@ -708,7 +766,7 @@ Accept-Language: en-US,en;q=0.9
             <option value="md5">MD5</option><option value="sha1">SHA1</option><option value="sha256">SHA256</option>
           </select>
           <button class="btn primary" onclick="runDecode()">Apply</button>
-          <button class="btn" onclick="smartDecode()">Smart decode</button>
+          <button class="btn" onclick="smartDecode()">Guess encoding</button>
         </div>
         <div class="cols">
           <div><label class="fld">Input</label><textarea id="d-in" style="min-height:190px"></textarea></div>
@@ -720,7 +778,7 @@ Accept-Language: en-US,en;q=0.9
     <!-- COMPARER -->
     <section class="view" id="view-comparer">
       <div class="viewhead"><div class="ht">
-        <h1>Comparer</h1>
+        <h1>Compare</h1>
         <p>Diff two requests or responses to see exactly what changed between them.</p>
       </div></div>
       <div class="viewbody">
@@ -740,7 +798,7 @@ Accept-Language: en-US,en;q=0.9
     <!-- SEQUENCER -->
     <section class="view" id="view-sequencer">
       <div class="viewhead"><div class="ht">
-        <h1>Sequencer</h1>
+        <h1>Tokens</h1>
         <p>Measure the randomness of tokens you have already captured (session IDs, reset tokens). Analysis only, nothing is sent.</p>
       </div></div>
       <div class="viewbody">
@@ -768,7 +826,7 @@ Accept-Language: en-US,en;q=0.9
     <!-- ACTIVE SCAN -->
     <section class="view" id="view-active">
       <div class="viewhead"><div class="ht">
-        <h1>Active scan</h1>
+        <h1>Scan</h1>
         <p>Automated detection of SQLi, XSS, SSRF, command injection, path traversal, and access-control bypass. It sends crafted requests, so it only runs against hosts you authorize.</p>
       </div></div>
       <div class="viewbody">
@@ -805,15 +863,15 @@ Accept-Language: en-US,en;q=0.9
 
         <div class="card">
           <h3>Scan one request</h3>
-          <div class="sub">Pick a request in Proxy history, then scan it. Its insertion points (query, form, cookie) are probed with the bundled checks.</div>
+          <div class="sub">Pick a request in History, then scan it. Its insertion points (query, form, cookie) are probed with the bundled checks.</div>
           <div class="toolbar">
-            <span class="meta" id="as-target">No request selected. Choose one in Proxy history.</span>
+            <span class="meta" id="as-target">No request selected. Choose one in History.</span>
           </div>
           <label class="fld">Insertion points (preview)</label>
           <pre class="field-out" id="as-points" style="min-height:80px"><span class="empty" style="padding:0">Select a request to list its parameters.</span></pre>
           <div class="toolbar" style="margin-top:12px">
             <button class="btn" id="as-discover" onclick="discoverPoints()" disabled>Discover insertion points</button>
-            <button class="btn primary" id="as-run" onclick="runActiveScan()" disabled>Run active scan</button>
+            <button class="btn primary" id="as-run" onclick="runActiveScan()" disabled>Run scan</button>
             <button class="btn danger" onclick="clearActive()">Clear findings</button>
             <span class="meta" id="as-runmsg"></span>
           </div>
@@ -827,8 +885,8 @@ Accept-Language: en-US,en;q=0.9
     <!-- INTRUDER -->
     <section class="view" id="view-intruder">
       <div class="viewhead"><div class="ht">
-        <h1>Intruder</h1>
-        <p>Automated, payload-driven attacks. Mark positions with <code class="mono" style="color:var(--accent)">§</code> markers, choose payloads, and fire at full concurrency. Shares the active scan's authorized scope.</p>
+        <h1>Payloads</h1>
+        <p>Automated, payload-driven attacks. Mark positions with <code class="mono" style="color:var(--accent)">§</code> markers, choose payloads, and fire at full concurrency. Shares Scan's authorized scope.</p>
       </div></div>
       <div class="viewbody">
         <div class="grid2">
@@ -855,10 +913,10 @@ Accept-Language: en-US,en;q=0.9
               <h3>Attack</h3>
               <label class="fld">Attack type</label>
               <select id="i-attack" style="width:100%" onchange="intruderPreview()">
-                <option value="sniper">Sniper — one set, one position at a time</option>
-                <option value="battering-ram">Battering ram — one set, all positions</option>
-                <option value="pitchfork">Pitchfork — one set per position, lockstep</option>
-                <option value="cluster-bomb">Cluster bomb — all combinations</option>
+                <option value="sniper">One position — one set, one insertion at a time</option>
+                <option value="battering-ram">All positions — one set, same value everywhere</option>
+                <option value="pitchfork">Lockstep — one set per position, same index</option>
+                <option value="cluster-bomb">Combinations — every pairing of the sets</option>
               </select>
               <label class="fld" style="margin-top:12px">Payload sets</label>
               <div class="pick" id="i-sets"></div>
@@ -904,11 +962,27 @@ Accept-Language: en-US,en;q=0.9
       <div class="viewbody">
         <div class="card">
           <h3>Save current session</h3>
+          <div class="sub">Local project files. Always on once unlocked.</div>
           <div class="toolbar">
             <input id="p-name" placeholder="project name" style="width:220px">
             <input id="p-note" placeholder="note (optional)" style="width:280px">
             <button class="btn primary" onclick="saveProject()">Save project</button>
             <span class="meta" id="p-msg"></span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Share pack</h3>
+          <div class="sub">Zip this project for another operator. Local files.</div>
+          <div class="toolbar">
+            <button class="btn" onclick="exportTeamPack()">Export pack</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Evidence vault</h3>
+          <div class="sub">Push an encrypted pack to a vault URL you configure under Setup → License.</div>
+          <div class="toolbar">
+            <button class="btn" onclick="vaultPush()">Push to vault</button>
+            <span class="meta" id="p-paid"></span>
           </div>
         </div>
         <div class="toolbar"><button class="btn" onclick="loadProjects()">Refresh</button>
@@ -941,7 +1015,7 @@ Accept-Language: en-US,en;q=0.9
     <!-- LOGGER -->
     <section class="view" id="view-logger">
       <div class="viewhead"><div class="ht">
-        <h1>Logger</h1>
+        <h1>Log</h1>
         <p>CONNECT, drops, TLS, WebSocket frames, crawler, and OAST hits. History only stores completed HTTP flows.</p>
       </div></div>
       <div class="viewbody">
@@ -971,7 +1045,7 @@ Accept-Language: en-US,en;q=0.9
     <!-- RULES -->
     <section class="view" id="view-rules">
       <div class="viewhead"><div class="ht">
-        <h1>Match and replace</h1>
+        <h1>Rewrite</h1>
         <p>Rewrite headers, URLs, or bodies on every in-scope request or response. Intercept filters live here too.</p>
       </div></div>
       <div class="viewbody">
@@ -1011,7 +1085,7 @@ Accept-Language: en-US,en;q=0.9
     <section class="view" id="view-session">
       <div class="viewhead"><div class="ht">
         <h1>Cookies &amp; session</h1>
-        <p>Cookie jar plus optional 401 login replay. Injected onto in-scope requests after match/replace.</p>
+        <p>Cookie jar plus optional 401 login replay. Injected onto in-scope requests after rewrite rules.</p>
       </div></div>
       <div class="viewbody">
         <div class="card">
@@ -1035,7 +1109,7 @@ Accept-Language: en-US,en;q=0.9
     <!-- ANALYZER -->
     <section class="view" id="view-analyzer">
       <div class="viewhead"><div class="ht">
-        <h1>Target analyzer</h1>
+        <h1>Endpoints</h1>
         <p>Parameters, comments, hidden fields, and script URLs from captured history. Nothing new is sent.</p>
       </div></div>
       <div class="viewbody">
@@ -1054,7 +1128,7 @@ Accept-Language: en-US,en;q=0.9
     <section class="view" id="view-components">
       <div class="viewhead"><div class="ht">
         <h1>Components</h1>
-        <p>Scan a lockfile against the public OSV database and export a CycloneDX SBOM. Dependency risk, not a hosted repository.</p>
+        <p>Scan a lockfile for known CVEs. Scores come from OSV, GitHub Advisory, and NVD. Severity is the real CVSS: 9.0+ critical, 7.0+ high, 4.0+ medium, else low.</p>
       </div></div>
       <div class="viewbody">
         <div class="card">
@@ -1064,13 +1138,61 @@ Accept-Language: en-US,en;q=0.9
           <div class="toolbar" style="margin-top:12px">
             <button class="btn" onclick="$('#sc-file').click()">Or paste a file</button>
             <input id="sc-file" type="file" hidden onchange="scaFromFile(event)">
-            <button class="btn primary" onclick="runSca()">Scan with OSV</button>
+            <button class="btn primary" onclick="runSca()">Scan dependencies</button>
             <button class="btn" onclick="downloadSbom()">Download SBOM</button>
             <span class="meta" id="sc-msg"></span>
           </div>
         </div>
+        <div class="card">
+          <h3>Lockfile watch</h3>
+          <div class="sub">Re-scan a remembered lockfile. Set the path under Setup → License.</div>
+          <div id="sc-watch"></div>
+        </div>
         <div class="sevbar" id="sc-sev"></div>
         <div id="sc-list"></div>
+      </div>
+    </section>
+
+    <!-- REPOS -->
+    <section class="view" id="view-repos">
+      <div class="viewhead"><div class="ht">
+        <h1>GitHub repos</h1>
+        <p>Add repositories you own or are authorized to scan. Kerf reads files from GitHub — nothing is cloned onto this machine. <b>Scan</b> is a quick pass (lockfiles + 400 source files). <b>Full scan</b> reads every listed lockfile and source file for CVEs, secrets, and dangerous functions. It does not attack a running app.</p>
+      </div></div>
+      <div class="viewbody">
+        <div class="card">
+          <h3>Authorization</h3>
+          <div class="sub">Same rule as the rest of Kerf: only systems (and repos) you have written permission to test.</div>
+          <label class="chk" style="white-space:normal">
+            <input type="checkbox" id="rp-auth" onchange="saveRepoAuth()">
+            I am authorized to scan every repository on this list
+          </label>
+        </div>
+        <div class="card">
+          <h3>Add a repository</h3>
+          <div class="grid2">
+            <div>
+              <label class="fld">GitHub URL or owner/repo</label>
+              <input id="rp-url" style="width:100%" placeholder="https://github.com/acme/app">
+            </div>
+            <div>
+              <label class="fld">GitHub token (optional, for private repos / rate limits)</label>
+              <input id="rp-token" type="password" style="width:100%" placeholder="ghp_… stays on this machine" autocomplete="off">
+            </div>
+          </div>
+          <div class="toolbar" style="margin-top:12px">
+            <button class="btn primary" id="rp-add" onclick="addRepo()">Add and scan</button>
+            <button class="btn" onclick="saveRepoToken()">Save token</button>
+            <button class="btn" id="rp-scan-all" onclick="scanAllRepos()">Scan all</button>
+            <button class="btn danger" id="rp-stop" onclick="stopRepoScan()" style="display:none">Stop</button>
+            <span class="meta" id="rp-msg"></span>
+          </div>
+        </div>
+        <div id="rp-busy" class="notice" style="display:none"></div>
+        <div id="rp-list"></div>
+        <div class="chiplist" id="rp-filter" style="margin:4px 0 12px"></div>
+        <div class="sevbar" id="rp-sev"></div>
+        <div id="rp-findings"></div>
       </div>
     </section>
 
@@ -1078,7 +1200,7 @@ Accept-Language: en-US,en;q=0.9
     <section class="view" id="view-oast">
       <div class="viewhead"><div class="ht">
         <h1>Out-of-band listener</h1>
-        <p>Local callback log. Use it when an authorized target can reach this machine or a tunnel you run. Not a public collaborator network.</p>
+        <p>Local callback log. Use it when an authorized target can reach this machine or a tunnel you run. Not a public hosted callback network.</p>
       </div></div>
       <div class="viewbody">
         <div class="card">
@@ -1092,6 +1214,11 @@ Accept-Language: en-US,en;q=0.9
           </div>
           <label class="fld">Callback URL</label>
           <pre class="field-out" id="oa-url" style="min-height:40px"></pre>
+        </div>
+        <div class="card">
+          <h3>Hosted callback</h3>
+          <div class="sub">Public OAST URL when the target cannot reach this laptop. Set it under Setup → License.</div>
+          <div id="oa-hosted"></div>
         </div>
         <div id="oa-hits"></div>
       </div>
@@ -1117,7 +1244,7 @@ Accept-Language: en-US,en;q=0.9
     <section class="view" id="view-setup">
       <div class="viewhead"><div class="ht">
         <h1>Setup</h1>
-        <p>Certificates, AI, and an optional outbound hop (Tor or another proxy). Only on a machine you control.</p>
+        <p>Certificates, AI, outbound hop, and the personal-use attestation.</p>
       </div></div>
       <div class="viewbody">
         <div class="page-tabs" id="setup-tabs">
@@ -1125,18 +1252,19 @@ Accept-Language: en-US,en;q=0.9
           <button data-tab="ai" onclick="setupTab('ai')">AI models</button>
           <button data-tab="outbound" onclick="setupTab('outbound')">Outbound / Tor</button>
           <button data-tab="tls" onclick="setupTab('tls')">Client TLS</button>
+          <button data-tab="license" onclick="setupTab('license')">License</button>
         </div>
 
         <div class="setup-pane on" id="setup-certs">
           <ol class="steps">
-            <li><b>Open the SureGuard browser.</b> <button class="btn sm primary" onclick="openBrowser()">Open browser</button>
+            <li><b>Open the Kerf browser.</b> <button class="btn sm primary" onclick="openBrowser()">Open browser</button>
               <span class="meta" id="setup-br-msg"></span><br>
               Isolated Chromium, already using <code class="mono" id="setup-proxy">127.0.0.1:8080</code>.</li>
             <li><b>Download the CA</b> if you want HTTPS to validate in a browser you configure yourself.
               <button class="btn sm" onclick="downloadCA()">Download CA certificate</button>
-              The SureGuard browser already ignores the intercept cert, so this is optional there.</li>
+              The Kerf browser already ignores the intercept cert, so this is optional there.</li>
             <li><b>Trust it</b> in that browser or OS trust store. The CA only affects clients that install it — your own machine.</li>
-            <li><b>Turn Intercept on</b> when you want to hold a request, then browse in the SureGuard window.</li>
+            <li><b>Turn Intercept on</b> when you want to hold a request, then browse in the Kerf window.</li>
           </ol>
           <div class="notice hold" style="margin-top:16px">
             Intercept and scan only on systems you own or are authorized to test. The CA cannot intercept anyone else's traffic.
@@ -1146,7 +1274,7 @@ Accept-Language: en-US,en;q=0.9
         <div class="setup-pane" id="setup-ai">
           <div class="card">
             <h3>AI models</h3>
-            <div class="sub">Connect a local model, a frontier API, or OpenRouter. Keys stay on this machine in <code class="mono">~/.dastday/assistant.json</code>.</div>
+            <div class="sub">Connect a local model, a frontier API, or OpenRouter. Keys stay on this machine in <code class="mono">~/.dastday/assistant.json</code>. Optional hosted AI URL lives under License.</div>
             <div class="grid2">
               <div>
                 <label class="fld">Provider</label>
@@ -1175,7 +1303,7 @@ Accept-Language: en-US,en;q=0.9
         <div class="setup-pane" id="setup-outbound">
           <div class="card">
             <h3>Outbound proxy</h3>
-            <div class="sub">After SureGuard intercepts a request, send it out through Tor or another proxy. Direct is the default. Start Tor yourself — SureGuard does not bundle it.</div>
+            <div class="sub">After Kerf intercepts a request, send it out through Tor or another proxy. Direct is the default. Start Tor yourself — Kerf does not bundle it.</div>
             <div id="up-banner" class="banner locked" style="margin-top:4px"><span class="state">DIRECT</span>
               <span id="up-banner-text">No outbound hop. Traffic leaves this machine normally.</span></div>
             <label class="fld">Preset</label>
@@ -1213,7 +1341,7 @@ Accept-Language: en-US,en;q=0.9
             </div>
             <div class="notice" style="margin-top:14px">
               Tor: install and start the Tor service, or open Tor Browser, then pick the matching preset and Save.
-              Repeater, Intruder, and active scan use this hop too. Only use it on systems you are authorized to test.
+              Replay, Payloads, and Scan use this hop too. Only use it on systems you are authorized to test.
             </div>
           </div>
         </div>
@@ -1229,6 +1357,56 @@ Accept-Language: en-US,en;q=0.9
             <div class="toolbar" style="margin-top:14px">
               <button class="btn primary" onclick="saveUpstream()">Save</button>
               <span class="meta" id="tls-msg"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-pane" id="setup-license">
+          <div class="card">
+            <h3>License</h3>
+            <div class="sub" id="lic-status">Locked — accept the Kerf Personal Use License to unlock.</div>
+            <ul class="gate-terms" id="lic-terms">
+              <li>Personal, non-commercial use only.</li>
+              <li>No commercial use — paid work, an employer, a client, or any commercial advantage.</li>
+              <li>No redistribution — including commercial redistribution.</li>
+            </ul>
+            <p class="meta" style="margin:0 0 10px"><a href="/LICENSE" target="_blank" rel="noreferrer">Read the full license</a></p>
+            <p class="meta" id="lic-copy">Copyright © 2026 Smashrock Media Inc. All rights reserved.</p>
+            <label class="chk" style="margin-top:12px; white-space:normal; align-items:flex-start">
+              <input type="checkbox" id="lic-attest">
+              <span id="lic-attest-text">I have read and accept the Kerf Personal Use License.</span>
+            </label>
+            <div class="toolbar" style="margin-top:12px">
+              <button class="btn primary" onclick="installLicense()">Unlock</button>
+              <button class="btn" onclick="clearLicense()">Withdraw attestation</button>
+              <span class="meta" id="lic-msg"></span>
+            </div>
+            <div class="notice hold" style="margin-top:14px">
+              Personal use only. No commercial use and no redistribution.
+              For a commercial license, email
+              <a href="mailto:accounts@kerf.software">accounts@kerf.software</a>.
+            </div>
+          </div>
+          <div class="plan-grid" id="lic-plans"></div>
+          <div class="notice ok" id="lic-paid" style="display:none;margin-top:14px"></div>
+          <div class="card" id="lic-cloud-card" style="margin-top:14px">
+            <h3>Hosted extras</h3>
+            <div class="sub">Optional URLs for vault packs, hosted OAST, hosted AI, and lockfile watch. All of these are available once unlocked.</div>
+            <label class="fld">Hosted OAST URL</label>
+            <input id="cl-oast" style="width:100%" placeholder="https://oast.example/callback">
+            <label class="fld" style="margin-top:12px">Hosted AI base URL</label>
+            <input id="cl-ai" style="width:100%" placeholder="https://ai.example/v1">
+            <label class="fld" style="margin-top:12px">Hosted AI key</label>
+            <input id="cl-aikey" type="password" style="width:100%" placeholder="optional" autocomplete="off">
+            <label class="fld" style="margin-top:12px">Vault URL</label>
+            <input id="cl-vault" style="width:100%" placeholder="https://vault.example/put">
+            <label class="fld" style="margin-top:12px">Vault token</label>
+            <input id="cl-vtok" type="password" style="width:100%" autocomplete="off">
+            <label class="fld" style="margin-top:12px">SCA watch path</label>
+            <input id="cl-watch" style="width:100%" placeholder="/path/to/requirements.txt">
+            <div class="toolbar" style="margin-top:14px">
+              <button class="btn primary" onclick="saveCloud()">Save hosted settings</button>
+              <span class="meta" id="cl-msg"></span>
             </div>
           </div>
         </div>
@@ -1249,7 +1427,7 @@ Accept-Language: en-US,en;q=0.9
         <div class="bubble bot">
           Tell me what to do and I’ll open the right screen and run it.
           Try <b>scan example.com</b>, <b>intercept on</b>,
-          <b>send the last request to repeater</b>, or <b>save project demo</b>.
+          <b>send the last request to replay</b>, or <b>save project demo</b>.
           Connect a model under Setup for full natural language.
         </div>
       </div>
@@ -1264,6 +1442,29 @@ Accept-Language: en-US,en;q=0.9
     </div><!-- work-row -->
   </main>
 
+  <div id="license-gate">
+    <div class="gate-card">
+      <div class="lic-pill">Locked</div>
+      <h1>Accept the license</h1>
+      <p class="lead">Every feature is included after you accept the Kerf Personal Use License. For a commercial license, email <a href="mailto:accounts@kerf.software">accounts@kerf.software</a>.</p>
+      <ul class="gate-terms" id="gate-terms">
+        <li>Personal, non-commercial use only, on systems you own or are authorized to test.</li>
+        <li>No commercial use — paid work, an employer, a client, or any commercial advantage.</li>
+        <li>No redistribution — including commercial redistribution, public forks, mirrors, bundling, or hosting Kerf as a service.</li>
+      </ul>
+      <p class="meta" style="margin:0 0 12px"><a href="/LICENSE" target="_blank" rel="noreferrer">Read the full license</a></p>
+      <p class="meta" id="gate-copy" style="margin:0 0 14px">Copyright © 2026 Smashrock Media Inc. All rights reserved.</p>
+      <label class="chk">
+        <input type="checkbox" id="gate-attest">
+        <span id="gate-attest-text">I have read and accept the Kerf Personal Use License. I will not use Kerf commercially or redistribute it.</span>
+      </label>
+      <div class="toolbar">
+        <button class="btn primary" onclick="installLicense(true)">Unlock</button>
+        <span class="meta" id="gate-msg"></span>
+      </div>
+    </div>
+  </div>
+
   <footer class="statusbar">
     <div class="seg"><span class="pulse"></span><span class="live" id="sb-state">listening</span></div>
     <div class="seg"><span class="lbl">proxy</span><span id="sb-proxy">127.0.0.1:8080</span></div>
@@ -1273,7 +1474,7 @@ Accept-Language: en-US,en;q=0.9
     <div class="seg"><span class="lbl">scanner</span><span id="sb-armed">locked</span></div>
     <div class="seg"><span class="lbl">intercept</span><span id="sb-ix">off</span></div>
     <div class="seg"><span class="lbl">out</span><span id="sb-up">direct</span></div>
-    <div class="right" id="sb-right">SureGuard</div>
+    <div class="right" id="sb-right">Kerf · © 2026</div>
   </footer>
 
 <script>
@@ -1290,14 +1491,15 @@ function gotoScreen(v) {
   if (v === 'scope') loadScope();
   if (v === 'active') { loadActive(); loadScanJobs(); }
   if (v === 'intruder') loadIntruder();
-  if (v === 'projects') loadProjects();
+  if (v === 'projects') { loadProjects(); loadLicense(); }
   if (v === 'reports') loadReportSummary();
-  if (v === 'setup') { loadAssistantSettings(); loadUpstream(); }
+  if (v === 'setup') { loadAssistantSettings(); loadUpstream(); loadLicense(); }
   if (v === 'logger') loadEvents();
   if (v === 'rules') loadRules();
   if (v === 'session') loadSession();
   if (v === 'analyzer') loadAnalyzer();
-  if (v === 'components') {}
+  if (v === 'components') loadLicense();
+  if (v === 'repos') loadRepos();
   if (v === 'oast') loadOast();
   if (v === 'repeater') renderRepeaterTabs();
   if (v === 'packets') loadPackets();
@@ -1319,7 +1521,13 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
-  if (!r.ok) throw new Error((await r.json().catch(()=>({detail:r.statusText}))).detail);
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({detail: r.statusText}));
+    if (r.status === 403 && data && data.locked) {
+      applyLicenseLock({locked: true, licensed: false, label: 'Locked'});
+    }
+    throw new Error(data.detail || r.statusText);
+  }
   return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
 }
 function methodClass(m){ return ['GET','POST','PUT','PATCH','DELETE'].includes(m) ? m : 'other'; }
@@ -1353,10 +1561,15 @@ async function refreshStatus() {
     $('#sb-armed').style.color = s.active_authorized ? 'var(--ok)' : 'var(--bad)';
     $('#nav-flows').textContent = s.flows;
     $('#nav-findings').textContent = s.findings;
+    const nr = $('#nav-repos'); if (nr) nr.textContent = s.repos || 0;
     const na = $('#nav-active'); na.textContent = s.active_findings;
     na.classList.toggle('hot', s.active_findings > 0);
     $('#setup-proxy').textContent = s.proxy;
-    $('#sb-right').textContent = s.project ? ('project: ' + s.project) : 'SureGuard';
+    if (s.license) applyLicenseLock(s.license);
+    const plan = (s.license && s.license.label) || 'Locked';
+    $('#sb-right').textContent = s.project ? ('project: ' + s.project) : ('Kerf · ' + plan);
+    const pill = $('#lic-pill');
+    if (pill) pill.textContent = plan;
     $('#sb-state').textContent = 'listening';
     if (s.browser && s.browser.running) {
       const m = $('#br-msg'); if (m && !m.textContent) m.textContent = 'browser open';
@@ -1426,20 +1639,20 @@ async function loadHistory() {
 async function showFlow(id) {
   const f = await api('/api/flow/' + id);
   currentFlow = f;
-  $('#insp-head').innerHTML = `Inspector <span class="mono" style="color:var(--ink-faint)">· ${escapeHtml(f.method)} ${escapeHtml(f.host)}</span>`;
+  $('#insp-head').innerHTML = `Detail <span class="mono" style="color:var(--ink-faint)">· ${escapeHtml(f.method)} ${escapeHtml(f.host)}</span>`;
   $('#insp-body').innerHTML =
     `<div class="pane-head" style="background:transparent;border:0;padding:10px 14px 2px">REQUEST</div>
      <pre class="raw">${renderRaw(f.req_raw)}</pre>
      <div class="pane-head" style="background:transparent;border:0;padding:10px 14px 2px">RESPONSE</div>
      <pre class="raw">${renderRaw(f.resp_raw)}</pre>
      <div style="padding:10px 14px; display:flex; gap:8px; flex-wrap:wrap">
-       <button class="btn sm" onclick="toRepeater()">Send to Repeater</button>
-       <button class="btn sm" onclick="toActive()">Send to Active scan</button>
-       <button class="btn sm" onclick="toIntruder()">Send to Intruder</button>
+       <button class="btn sm" onclick="toRepeater()">Send to Replay</button>
+       <button class="btn sm" onclick="toActive()">Send to Scan</button>
+       <button class="btn sm" onclick="toIntruder()">Send to Payloads</button>
        <button class="btn sm" onclick="copyAs('curl')">curl</button>
        <button class="btn sm" onclick="copyAs('fetch')">fetch</button>
        <button class="btn sm" onclick="copyAs('python')">Python</button>
-       <button class="btn sm" onclick="toPackets()">Open in Packets</button>
+       <button class="btn sm" onclick="toPackets()">Open in Capture</button>
      </div>`;
 }
 async function clearHistory() {
@@ -1503,8 +1716,18 @@ async function runSeq() {
 
 // ---- passive findings ----
 function sevbar(el, counts){
-  el.innerHTML = ['high','medium','low','info'].map(s =>
-    `<div class="sevchip"><span class="n" style="color:var(--sev-${s})">${counts[s]||0}</span><span class="l">${s}</span></div>`).join('');
+  const color = {critical:'critical', high:'high', medium:'med', low:'low', info:'info', unknown:'info'};
+  el.innerHTML = ['critical','high','medium','low'].map(s =>
+    `<div class="sevchip"><span class="n" style="color:var(--sev-${color[s]})">${counts[s]||0}</span><span class="l">${s}</span></div>`).join('');
+}
+function cvssBadge(f){
+  const sev = f.severity || 'unknown';
+  const score = (f.cvss === 0 || f.cvss) ? Number(f.cvss).toFixed(1) : '';
+  return `<span class="sev ${sev}">${escapeHtml(sev.toUpperCase())}${score ? ' ' + score : ''}</span>`;
+}
+function cvssMeta(f){
+  const bits = [f.cve, f.cvss_source || (f.sources||[]).join(', ')].filter(Boolean);
+  return bits.length ? `<div class="url">${escapeHtml(bits.join(' · '))}</div>` : '';
 }
 async function loadFindings() {
   const fs = await api('/api/findings');
@@ -1590,7 +1813,7 @@ async function openBrowser() {
       return;
     }
     if (!r.ok) { set(r.error || 'could not open browser'); return; }
-    set(r.opened ? 'SureGuard browser opened' : 'browser already running');
+    set(r.opened ? 'Kerf browser opened' : 'browser already running');
   } catch(e) { set(e.message); }
 }
 
@@ -1678,7 +1901,7 @@ async function loadActive() {
   $('#as-discover').disabled = !currentFlow;
   $('#as-target').textContent = currentFlow
     ? ('Selected: ' + currentFlow.method + ' ' + currentFlow.host)
-    : 'No request selected. Choose one in Proxy history.';
+    : 'No request selected. Choose one in History.';
   renderActiveFindings(await api('/api/active/findings'));
 }
 async function authorizeActive() {
@@ -1845,6 +2068,24 @@ async function deleteProject(name) {
   await api('/api/projects/delete', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({name})});
   loadProjects();
 }
+async function exportTeamPack() {
+  try {
+    const r = await fetch('/api/team/pack', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({name:$('#p-name').value.trim()})});
+    if (!r.ok) throw new Error((await r.json().catch(()=>({detail:r.statusText}))).detail);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await r.blob());
+    a.download = 'kerf-team.zip'; a.click();
+    $('#p-msg').textContent = 'pack downloaded';
+  } catch(e) { $('#p-msg').textContent = e.message; }
+}
+async function vaultPush() {
+  try {
+    const res = await api('/api/team/vault', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({name:$('#p-name').value.trim()})});
+    $('#p-msg').textContent = 'vaulted ' + (res.bytes||0) + ' bytes';
+  } catch(e) { $('#p-msg').textContent = e.message; }
+}
 
 // ---- reports ----
 async function loadReportSummary() {
@@ -1852,7 +2093,7 @@ async function loadReportSummary() {
   sevbar($('#rep-sevbar'), d.totals.by_severity);
 }
 function downloadReport(){
-  const a = document.createElement('a'); a.href = '/api/report?format=html'; a.download = 'sureguard-report.html'; a.click();
+  const a = document.createElement('a'); a.href = '/api/report?format=html'; a.download = 'kerf-report.html'; a.click();
 }
 
 // ---- scope ----
@@ -1867,7 +2108,7 @@ async function saveScope() {
 async function downloadCA() {
   const pem = await api('/api/ca-cert');
   const blob = new Blob([pem], {type:'application/x-pem-file'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sureguard-ca.pem'; a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'kerf-ca.pem'; a.click();
 }
 
 // ---- assistant ----
@@ -1909,6 +2150,7 @@ function setupTab(id) {
   document.querySelectorAll('.setup-pane').forEach(p => p.classList.toggle('on', p.id === 'setup-' + id));
   if (id === 'ai') loadAssistantSettings();
   if (id === 'outbound' || id === 'tls') loadUpstream();
+  if (id === 'license') loadLicense();
 }
 function onUpstreamPreset() {
   const p = $('#up-preset').value;
@@ -2219,7 +2461,7 @@ async function showPacket(id){
   currentPacket = id;
   document.querySelectorAll('#pk-rows tr').forEach(r => r.classList.toggle('sel', r.dataset.id === id));
   const d = await api('/api/packets/' + id);
-  $('#pk-tree-h').textContent = 'Packet details · ' + (d.protocol||'') + ' · ' + (d.host||'');
+  $('#pk-tree-h').textContent = 'Headers · ' + (d.protocol||'') + ' · ' + (d.host||'');
   $('#pk-tree').innerHTML = renderTree(d.tree);
   $('#pk-hex').innerHTML = (d.hex||[]).map(r =>
     `<div><span class="off">${r.off.toString(16).padStart(8,'0')}</span>${escapeHtml(r.hex)}${' '.repeat(Math.max(0, 48-(r.hex||'').length))}<span class="asc">${escapeHtml(r.ascii)}</span></div>`
@@ -2247,7 +2489,7 @@ function exportPcap(){
 async function exportHar(){
   const har = await api('/api/har');
   const blob = new Blob([JSON.stringify(har,null,2)], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sureguard.har'; a.click();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'kerf.har'; a.click();
 }
 async function importHar(ev){
   const f = ev.target.files[0]; if (!f) return;
@@ -2358,28 +2600,32 @@ async function importOpenApi(ev){
   } catch(e) { $('#an-msg').textContent = e.message; }
 }
 let lastSbom = null;
+function renderScaFindings(res){
+  const counts = {critical:0, high:0, medium:0, low:0};
+  (res.findings||[]).forEach(f => { counts[f.severity] = (counts[f.severity]||0)+1; });
+  sevbar($('#sc-sev'), counts);
+  $('#sc-msg').textContent = (res.packages||[]).length + ' packages · ' + (res.findings||[]).length + ' findings';
+  $('#sc-list').innerHTML = (res.findings||[]).map(f => `
+    <div class="finding ${f.severity||'unknown'}">
+      <div class="ft">${cvssBadge(f)}
+        <span class="title">${escapeHtml(f.cve || f.id)}</span>
+        <span class="check">${escapeHtml(f.name)} ${escapeHtml(f.version)}</span></div>
+      <div class="detail">${escapeHtml(f.summary||'')}</div>
+      ${cvssMeta(f)}
+    </div>`).join('') || '<div class="empty">No known vulnerabilities on these versions.</div>';
+}
 async function runSca(){
-  $('#sc-msg').textContent = 'querying OSV…';
+  $('#sc-msg').textContent = 'looking up CVSS…';
   try {
     const res = await api('/api/sca', {method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({path:$('#sc-path').value.trim()})});
     lastSbom = res.sbom;
-    const counts = {high:0,medium:0,low:0,info:0};
-    (res.findings||[]).forEach(f => { const s = f.severity==='critical'?'high':f.severity; counts[s]=(counts[s]||0)+1; });
-    sevbar($('#sc-sev'), counts);
-    $('#sc-msg').textContent = (res.packages||[]).length + ' packages · ' + (res.findings||[]).length + ' findings';
-    $('#sc-list').innerHTML = (res.findings||[]).map(f => `
-      <div class="finding ${f.severity==='critical'?'high':f.severity}">
-        <div class="ft"><span class="sev ${f.severity==='critical'?'high':f.severity}">${escapeHtml(f.severity)}</span>
-          <span class="title">${escapeHtml(f.id)}</span>
-          <span class="check">${escapeHtml(f.name)} ${escapeHtml(f.version)}</span></div>
-        <div class="detail">${escapeHtml(f.summary)}</div>
-      </div>`).join('') || '<div class="empty">No known vulnerabilities on these versions.</div>';
+    renderScaFindings(res);
   } catch(e) { $('#sc-msg').textContent = e.message; }
 }
 async function scaFromFile(ev){
   const f = ev.target.files[0]; if (!f) return;
-  $('#sc-msg').textContent = 'querying OSV…';
+  $('#sc-msg').textContent = 'looking up CVSS…';
   try {
     const res = await api('/api/sca', {method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({filename:f.name, text: await f.text()})});
@@ -2388,23 +2634,14 @@ async function scaFromFile(ev){
     $('#sc-path').value = f.name;
     const ev2 = {findings:res.findings, packages:res.packages, sbom:res.sbom};
     lastSbom = ev2.sbom;
-    const counts = {high:0,medium:0,low:0,info:0};
-    (res.findings||[]).forEach(f => { const s = f.severity==='critical'?'high':f.severity; counts[s]=(counts[s]||0)+1; });
-    sevbar($('#sc-sev'), counts);
-    $('#sc-list').innerHTML = (res.findings||[]).map(f => `
-      <div class="finding ${f.severity==='critical'?'high':f.severity}">
-        <div class="ft"><span class="sev ${f.severity==='critical'?'high':f.severity}">${escapeHtml(f.severity)}</span>
-          <span class="title">${escapeHtml(f.id)}</span>
-          <span class="check">${escapeHtml(f.name)} ${escapeHtml(f.version)}</span></div>
-        <div class="detail">${escapeHtml(f.summary)}</div>
-      </div>`).join('') || '<div class="empty">No known vulnerabilities on these versions.</div>';
+    renderScaFindings(res);
   } catch(e) { $('#sc-msg').textContent = e.message; }
 }
 function downloadSbom(){
   if (!lastSbom) { $('#sc-msg').textContent = 'scan first'; return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(lastSbom,null,2)],{type:'application/json'}));
-  a.download = 'sureguard-sbom.json'; a.click();
+  a.download = 'kerf-sbom.json'; a.click();
 }
 async function loadOast(){
   const s = await api('/api/oast');
@@ -2413,6 +2650,11 @@ async function loadOast(){
   $('#oa-hits').innerHTML = (s.hits||[]).map(h =>
     `<div class="card"><b>${escapeHtml(h.request_line)}</b><div class="meta">${escapeHtml(h.peer)} · ${fmtTime(h.ts)}</div></div>`
   ).join('') || '<div class="empty">No callbacks yet.</div>';
+  const box = $('#oa-hosted');
+  if (box) {
+    if (s.hosted_url) box.innerHTML = `<div class="notice ok"><b>Hosted OAST</b><br><code>${escapeHtml(s.hosted_url)}</code></div>`;
+    else box.innerHTML = '<div class="meta">Set a hosted OAST URL under Setup → License.</div>';
+  }
 }
 async function startOast(){
   const s = await api('/api/oast/start', {method:'POST', headers:{'content-type':'application/json'},
@@ -2430,7 +2672,350 @@ async function stopOast(){ await api('/api/oast/stop',{method:'POST'}); loadOast
     loadHistory();
   });
 });
-refreshStatus(); loadSitemap(); loadHistory(); loadAssistantSettings(); loadAssistantTranscript(); setInterval(refreshStatus, 2500);
+function applyLicenseLock(L) {
+  const locked = !L || L.locked || !L.licensed;
+  document.body.classList.toggle('app-locked', locked);
+  const pill = $('#lic-pill');
+  if (pill) pill.textContent = (L && L.label) || (locked ? 'Locked' : 'Personal');
+  const text = (L && L.attestation) || '';
+  if (text) {
+    const a = $('#lic-attest-text'); if (a) a.textContent = text;
+    const g = $('#gate-attest-text'); if (g) g.textContent = text;
+  }
+  const terms = (L && L.terms) || [];
+  if (terms.length) {
+    const html = terms.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+    const gt = $('#gate-terms'); if (gt) gt.innerHTML = html;
+    const lt = $('#lic-terms'); if (lt) lt.innerHTML = html;
+  }
+  const copy = (L && L.copyright) || '';
+  if (copy) {
+    const gc = $('#gate-copy'); if (gc) gc.textContent = copy;
+    const lc = $('#lic-copy'); if (lc) lc.textContent = copy;
+    const sb = $('#sb-right'); if (sb) sb.textContent = 'Kerf · © 2026';
+  }
+  return locked;
+}
+async function loadLicense() {
+  const d = await api('/api/license');
+  const L = d.license || {};
+  applyLicenseLock(L);
+  $('#lic-status').textContent = L.licensed
+    ? (L.label + ' use attested')
+    : (L.error || 'Locked — accept the Kerf Personal Use License.');
+  const pmsg = $('#p-paid');
+  if (pmsg) pmsg.textContent = L.licensed ? 'Vault is available.' : 'Accept the license first.';
+  const watch = $('#sc-watch');
+  if (watch) {
+    watch.innerHTML = `<div class="toolbar"><button class="btn" onclick="runScaWatch()">Re-scan watched lockfile</button><span class="meta">${escapeHtml((d.cloud||{}).sca_watch_path||'set a path under License')}</span></div>`;
+  }
+  const plans = d.catalog || [];
+  $('#lic-plans').innerHTML = plans.map(p => `
+    <div class="plan-card">
+      <h4>${escapeHtml(p.label)}</h4>
+      <div class="price">${escapeHtml(p.price)}</div>
+      <div class="meta">${escapeHtml(p.blurb)}</div>
+      <ul>${(p.features||[]).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+    </div>`).join('');
+  const c = d.cloud || {};
+  if ($('#cl-oast')) {
+    $('#cl-oast').value = c.hosted_oast || '';
+    $('#cl-ai').value = c.hosted_ai_url || '';
+    $('#cl-vault').value = c.vault_url || '';
+    $('#cl-watch').value = c.sca_watch_path || '';
+  }
+}
+async function installLicense(fromGate) {
+  const attestEl = fromGate ? $('#gate-attest') : $('#lic-attest');
+  const msgEl = fromGate ? $('#gate-msg') : $('#lic-msg');
+  const attest = !!(attestEl && attestEl.checked);
+  if (!attest) { if (msgEl) msgEl.textContent = 'accept the license first'; return; }
+  try {
+    const res = await api('/api/license', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({attest: true})});
+    if (msgEl) msgEl.textContent = 'unlocked ' + (res.label||'Personal');
+    loadLicense(); refreshStatus();
+  } catch(e) { if (msgEl) msgEl.textContent = e.message; }
+}
+async function clearLicense() {
+  await api('/api/license', {method:'DELETE'});
+  $('#lic-msg').textContent = 'withdrawn — app locked';
+  applyLicenseLock({locked: true, licensed: false, label: 'Locked'});
+  loadLicense(); refreshStatus();
+}
+async function startCheckout(plan) {
+  try {
+    const res = await api('/api/billing/checkout', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({plan, return_url: location.origin})});
+    if (res.url) location.href = res.url;
+    else $('#lic-msg').textContent = 'no checkout URL';
+  } catch(e) { $('#lic-msg').textContent = e.message; }
+}
+async function saveCloud() {
+  try {
+    await api('/api/cloud', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({
+        hosted_oast: $('#cl-oast').value,
+        hosted_ai_url: $('#cl-ai').value,
+        hosted_ai_key: $('#cl-aikey').value,
+        vault_url: $('#cl-vault').value,
+        vault_token: $('#cl-vtok').value,
+        sca_watch_path: $('#cl-watch').value,
+      })});
+    $('#cl-msg').textContent = 'saved';
+    loadLicense();
+  } catch(e) { $('#cl-msg').textContent = e.message; }
+}
+async function runScaWatch() {
+  const d = await api('/api/license');
+  const path = (d.cloud || {}).sca_watch_path || '';
+  if (!path) { $('#sc-msg').textContent = 'set a watch path under Setup → License'; return; }
+  $('#sc-path').value = path;
+  runSca();
+}
+
+let repoFilter = '';
+let lastRepos = [];
+
+function repoKey(r) {
+  return ((r && r.owner) || '') + '/' + ((r && r.name) || '');
+}
+
+function setRepoFilter(key) {
+  repoFilter = key || '';
+  renderRepoFilter(lastRepos);
+  renderRepoFindings(lastRepos);
+  document.querySelectorAll('#rp-list .card[data-repo]').forEach(el => {
+    el.classList.toggle('rp-on', !!repoFilter && el.getAttribute('data-repo') === repoFilter);
+  });
+}
+
+function renderRepoFilter(repos) {
+  const el = $('#rp-filter');
+  if (!el) return;
+  const rows = repos || [];
+  const keys = rows.map(repoKey);
+  if (repoFilter && !keys.includes(repoFilter)) repoFilter = '';
+  if (!rows.length) { el.innerHTML = ''; return; }
+  const chip = (key, label, n) => {
+    const on = key ? key === repoFilter : !repoFilter;
+    return `<button type="button" class="btn sm${on ? ' primary' : ''}" onclick="setRepoFilter('${escapeHtml(key)}')">${escapeHtml(label)} · ${n}</button>`;
+  };
+  const allN = rows.reduce((s, r) => s + ((r.findings || []).length), 0);
+  el.innerHTML = chip('', 'All repos', allN) + rows.map(r =>
+    chip(repoKey(r), repoKey(r), (r.findings || []).length)).join('');
+}
+
+function renderRepoFindings(repos) {
+  lastRepos = repos || [];
+  renderRepoFilter(lastRepos);
+  const pool = repoFilter
+    ? lastRepos.filter(r => repoKey(r) === repoFilter)
+    : lastRepos;
+  const findings = [];
+  pool.forEach(r => (r.findings || []).forEach(f => findings.push(f)));
+  findings.sort((a, b) => (b.cvss == null ? -1 : b.cvss) - (a.cvss == null ? -1 : a.cvss));
+  const counts = {critical:0, high:0, medium:0, low:0};
+  findings.forEach(f => { counts[f.severity] = (counts[f.severity] || 0) + 1; });
+  sevbar($('#rp-sev'), counts);
+  const empty = repoFilter
+    ? `No findings for ${repoFilter}.`
+    : 'No findings yet. Add a repo you are authorized to scan, then Scan.';
+  $('#rp-findings').innerHTML = findings.length ? findings.map((f, i) => {
+    const loc = `${f.path||''}${f.line ? ':' + f.line : ''}${f.evidence ? ' · ' + f.evidence : ''}`;
+    const steps = (f.fix || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    const refs = (f.refs || []).slice(0, 6).map(u =>
+      `<a href="${escapeHtml(u)}" target="_blank" rel="noreferrer" onclick="event.stopPropagation()">${escapeHtml(u.replace(/^https?:\/\//, ''))}</a>`
+    ).join('');
+    return `
+    <div class="finding clickable ${f.severity||'unknown'}" onclick="this.classList.toggle('open')">
+      <div class="ft">${cvssBadge(f)}
+        <span class="title">${escapeHtml(f.title)}</span>
+        <span class="check">${escapeHtml(f.kind||'')} ${escapeHtml(f.repo||'')}</span>
+        <span class="chev">▶</span></div>
+      <div class="detail">${escapeHtml(f.detail||'')}</div>
+      <div class="more">
+        <div class="why"><b>What this means</b>${escapeHtml(f.explain || f.detail || '')}</div>
+        ${steps ? `<div class="rem"><b>How to resolve</b><ol>${steps}</ol></div>` : ''}
+        ${cvssMeta(f)}
+        ${loc ? `<div class="url">${escapeHtml(loc)}</div>` : ''}
+        ${refs ? `<div class="refs">${refs}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty">${escapeHtml(empty)}</div>`;
+}
+
+let repoScanBusy = false;
+let repoPoll = null;
+
+function setRepoBusy(on, label) {
+  repoScanBusy = !!on;
+  const busy = $('#rp-busy');
+  if (busy) {
+    busy.style.display = on ? '' : 'none';
+    busy.innerHTML = on
+      ? `<span class="spin"></span><b>${escapeHtml(label || 'Scanning…')}</b> Fetching files and looking up CVSS.
+         <button class="btn sm danger" onclick="stopRepoScan()" style="margin-left:10px">Stop</button>`
+      : '';
+  }
+  const stop = $('#rp-stop');
+  if (stop) stop.style.display = on ? '' : 'none';
+  const msg = $('#rp-msg');
+  if (msg && on) msg.textContent = label || 'Scanning…';
+  ['rp-add', 'rp-scan-all'].forEach(id => {
+    const el = $('#' + id); if (el) el.disabled = !!on;
+  });
+}
+
+function startRepoPoll() {
+  if (repoPoll) return;
+  repoPoll = setInterval(() => { loadRepos({silent:true}); }, 700);
+}
+
+function stopRepoPoll() {
+  if (repoPoll) { clearInterval(repoPoll); repoPoll = null; }
+}
+
+async function loadRepos(opts) {
+  const silent = opts && opts.silent;
+  const d = await api('/api/repos');
+  const auth = $('#rp-auth');
+  if (auth) auth.checked = !!d.authorized;
+  const n = $('#nav-repos'); if (n) n.textContent = (d.repos || []).length;
+  const scanning = (d.repos || []).filter(r => r.status === 'scanning');
+  if (scanning.length && !silent) {
+    setRepoBusy(true, 'Scanning ' + scanning.map(r => r.owner + '/' + r.name).join(', '));
+  } else if (!scanning.length && repoScanBusy) {
+    setRepoBusy(false);
+  }
+  $('#rp-list').innerHTML = (d.repos || []).length ? d.repos.map(r => {
+    const live = r.status === 'scanning';
+    const line = live
+      ? `<span class="scan-live"><span class="spin"></span>${escapeHtml(r.progress || 'Scanning…')}</span>`
+      : `${escapeHtml(r.status || 'idle')}${r.mode ? ' · ' + escapeHtml(r.mode) : ''}${r.last_scan ? ' · last scan ' + fmtTime(r.last_scan) : ''}
+          · ${(r.findings||[]).length} finding(s) · ${r.packages||0} packages · ${r.files||0}${r.files_total && r.files_total > (r.files||0) ? ' / ' + r.files_total : ''} files
+          ${r.mode === 'quick' && r.files_total && r.files_total > (r.files||0) ? ' · partial — use Full scan' : ''}
+          ${r.error ? ' · ' + escapeHtml(r.error) : ''}`;
+    const key = repoKey(r);
+    return `
+    <div class="card${live ? ' scanning' : ''}${repoFilter === key ? ' rp-on' : ''}" data-repo="${escapeHtml(key)}" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <b class="rp-name" onclick="setRepoFilter('${escapeHtml(key)}')">${escapeHtml(r.owner)}/${escapeHtml(r.name)}</b>
+        <a href="${escapeHtml(r.url)}" target="_blank" rel="noreferrer" class="meta" style="margin-left:8px">github</a>
+        <div class="meta">${line}</div>
+      </div>
+      ${live
+        ? `<button class="btn sm danger" onclick="stopRepoScan('${escapeHtml(r.id)}')">Stop</button>`
+        : `<button class="btn sm" ${repoScanBusy ? 'disabled' : ''} onclick="scanRepo('${escapeHtml(r.id)}')">Scan</button>
+           <button class="btn sm primary" ${repoScanBusy ? 'disabled' : ''} onclick="scanRepo('${escapeHtml(r.id)}', true)">Full scan</button>
+           <button class="btn sm danger" ${repoScanBusy ? 'disabled' : ''} onclick="removeRepo('${escapeHtml(r.id)}')">Remove</button>`}
+    </div>`;
+  }).join('') : '<div class="empty">No repositories yet.</div>';
+  renderRepoFindings(d.repos);
+}
+
+async function addRepo() {
+  try {
+    const row = await api('/api/repos', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({repo: $('#rp-url').value})});
+    $('#rp-url').value = '';
+    await loadRepos();
+    if (!$('#rp-auth').checked) {
+      $('#rp-msg').textContent = 'Added. Check the authorization box, then Scan.';
+      return;
+    }
+    await scanRepo(row.id);
+  } catch(e) { $('#rp-msg').textContent = e.message; }
+}
+
+async function removeRepo(id) {
+  if (repoScanBusy) return;
+  await api('/api/repos/' + encodeURIComponent(id), {method:'DELETE'});
+  loadRepos();
+}
+
+async function saveRepoAuth() {
+  await api('/api/repos/config', {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({authorized: $('#rp-auth').checked})});
+}
+
+async function saveRepoToken() {
+  try {
+    await api('/api/repos/config', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({token: $('#rp-token').value})});
+    $('#rp-token').value = '';
+    $('#rp-msg').textContent = 'token saved';
+  } catch(e) { $('#rp-msg').textContent = e.message; }
+}
+
+async function scanRepo(id, full) {
+  if (repoScanBusy) return;
+  const known = lastRepos.find(r => r.id === id);
+  if (known) setRepoFilter(repoKey(known));
+  setRepoBusy(true, full ? 'Full scan — reading every listed file from GitHub…'
+                         : 'Quick scan…');
+  sevbar($('#rp-sev'), {critical:0, high:0, medium:0, low:0});
+  $('#rp-findings').innerHTML = '<div class="empty">Previous results cleared. Waiting for this scan…</div>';
+  startRepoPoll();
+  try {
+    const row = await api('/api/repos/scan', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({id, full: !!full})});
+    const n = (row.findings||[]).length;
+    $('#rp-msg').textContent = row.status === 'stopped'
+      ? `Scan stopped · ${n} finding(s) so far · ${row.files||0} files`
+      : `${full ? 'Full' : 'Quick'} scan done · ${n} finding(s) · ${row.files||0} files`;
+  } catch(e) { $('#rp-msg').textContent = e.message; }
+  finally { stopRepoPoll(); setRepoBusy(false); await loadRepos(); }
+}
+
+async function scanAllRepos() {
+  if (repoScanBusy) return;
+  setRepoBusy(true, 'Scanning all repositories…');
+  sevbar($('#rp-sev'), {critical:0, high:0, medium:0, low:0});
+  $('#rp-findings').innerHTML = '<div class="empty">Previous results cleared. Waiting for this scan…</div>';
+  startRepoPoll();
+  try {
+    await api('/api/repos/scan-all', {method:'POST'});
+    $('#rp-msg').textContent = 'All scans finished';
+  } catch(e) { $('#rp-msg').textContent = e.message; }
+  finally { stopRepoPoll(); setRepoBusy(false); await loadRepos(); }
+}
+
+async function stopRepoScan(id) {
+  try {
+    const d = await api('/api/repos/scan/stop', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({id: id || ''})});
+    const live = (d.repos || []).some(r => r.status === 'scanning');
+    $('#rp-msg').textContent = live ? 'Stopping…' : 'Scan stopped';
+    if (!live) { stopRepoPoll(); setRepoBusy(false); }
+    await loadRepos({silent:true});
+  } catch(e) { $('#rp-msg').textContent = e.message; }
+}
+async function claimPaidSession() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('paid') !== '1') return;
+  gotoScreen('setup'); setupTab('license');
+  const box = $('#lic-paid');
+  if (!q.get('session_id')) {
+    if (box) { box.style.display=''; box.textContent = 'Payment received. If the key is not active yet, wait a moment and refresh — the issuer mints it automatically.'; }
+    history.replaceState({}, '', '/');
+    return;
+  }
+  try {
+    const res = await api('/api/billing/claim', {method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({session_id: q.get('session_id'), install: true})});
+    history.replaceState({}, '', '/');
+    if (box) {
+      box.style.display = '';
+      box.innerHTML = '<b>License installed.</b> ' + escapeHtml((res.plan||'') + ' · ' + (res.email||''));
+    }
+    loadLicense(); refreshStatus();
+  } catch(e) {
+    if (box) { box.style.display=''; box.textContent = e.message; }
+  }
+}
+
+refreshStatus(); loadSitemap(); loadHistory(); loadAssistantSettings(); loadAssistantTranscript(); loadLicense(); claimPaidSession(); setInterval(refreshStatus, 2500);
 </script>
 </body>
 </html>

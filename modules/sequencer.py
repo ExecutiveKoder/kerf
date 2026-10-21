@@ -1,5 +1,5 @@
 """
-Sequencer: analyze the randomness/entropy of a set of captured tokens (session
+Tokens: analyze the randomness/entropy of a set of captured tokens (session
 IDs, CSRF tokens, password-reset tokens). Weak tokens are predictable; this
 measures that. Analysis only, over tokens you have already collected.
 """

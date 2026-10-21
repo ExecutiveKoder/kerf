@@ -23,6 +23,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
+from modules.brand import CA_CN, NAME
+
 CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
 CA_CERT_PATH = CONFIG_DIR / "ca-cert.pem"
 CA_KEY_PATH = CONFIG_DIR / "ca-key.pem"
@@ -52,8 +54,8 @@ class CertificateAuthority:
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         subject = issuer = x509.Name(
             [
-                x509.NameAttribute(NameOID.COMMON_NAME, "SureGuard Root CA"),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "SureGuard"),
+                x509.NameAttribute(NameOID.COMMON_NAME, CA_CN),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, NAME),
             ]
         )
         now = datetime.datetime.now(datetime.timezone.utc)

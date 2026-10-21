@@ -29,6 +29,9 @@ from modules.session import SessionHandler
 from modules.logger import EventLog
 from modules.oast import OastListener
 from modules.crawler import Crawler
+from modules.license import LicenseStore
+from modules.cloud import CloudSettings
+from modules.repos import RepoStore
 from ui.server import create_app
 
 
@@ -49,6 +52,9 @@ class AppContext:
     events: EventLog
     oast: OastListener
     crawler: Crawler
+    licenses: LicenseStore
+    cloud: CloudSettings
+    repos: RepoStore = field(default_factory=RepoStore)
     extensions_loaded: list[str] = field(default_factory=list)
     browser: EmbeddedBrowser = field(default_factory=EmbeddedBrowser)
     upstream: UpstreamRoute = field(default_factory=UpstreamRoute)
@@ -109,9 +115,13 @@ def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
     api = ExtensionAPI(interceptor, passive, active, intruder)
     loaded = ExtensionManager(api, ext_dir).load_all()
 
+    licenses = LicenseStore()
+    cloud = CloudSettings(licenses)
+    proxy.gate = lambda: licenses.unlocked
     ctx = AppContext(interceptor, proxy, history, passive, repeater, active,
                      intruder, projects, None, intercept, rules, session,
-                     events, oast, crawler, loaded)  # type: ignore[arg-type]
+                     events, oast, crawler, licenses, cloud, RepoStore(),
+                     loaded)  # type: ignore[arg-type]
     ctx.assistant = Assistant(ctx)
     ctx.browser = EmbeddedBrowser()
     ctx.upstream = UpstreamRoute()
@@ -128,10 +138,10 @@ async def run(proxy_host="127.0.0.1", proxy_port=8080,
     config = uvicorn.Config(app, host=ui_host, port=ui_port, log_level="warning")
     server = uvicorn.Server(config)
 
-    print(f"[sureguard] proxy   → http://{proxy_host}:{proxy_port}")
-    print(f"[sureguard] web UI  → http://{ui_host}:{ui_port}")
-    print(f"[sureguard] extensions loaded: {ctx.extensions_loaded or 'none'}")
-    print("[sureguard] click Open browser in the UI — Chromium is already "
+    print(f"[kerf] proxy   → http://{proxy_host}:{proxy_port}")
+    print(f"[kerf] web UI  → http://{ui_host}:{ui_port}")
+    print(f"[kerf] extensions loaded: {ctx.extensions_loaded or 'none'}")
+    print("[kerf] click Open browser in the UI — Chromium is already "
           "pointed at the proxy.")
 
     await asyncio.gather(

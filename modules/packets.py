@@ -1,10 +1,9 @@
 """
-Wireshark-shaped views over captured proxy flows.
+Reconstructed views over captured proxy flows.
 
-This is reconstructed application-layer capture (what SureGuard already saw),
-not a promiscuous NIC sniff. The packet list, display filter, protocol tree,
-hex dump, follow-stream, conversations, and pcap export are the habits testers
-expect from Wireshark — applied to HTTP/S that went through the proxy.
+This is application-layer capture (what Kerf already saw), not a promiscuous
+NIC sniff. List, header tree, hex, filter, follow-conversation, and
+pcap export apply to HTTP/S that went through the proxy.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from urllib.parse import urlsplit
 
 
 # --------------------------------------------------------------------------- #
-# Display filter
+# View filter
 # --------------------------------------------------------------------------- #
 
 _TOKEN = re.compile(
@@ -320,7 +319,7 @@ def dissect(row: dict) -> list:
             "name": "Transport Layer Security",
             "value": row.get("protocol") or "TLS",
             "children": [
-                {"name": "Record Layer", "value": "Application Data (decrypted by SureGuard)"},
+                {"name": "Record Layer", "value": "Application Data (decrypted by Kerf)"},
                 {"name": "ALPN / version", "value": row.get("protocol") or "http/1.1"},
             ],
         })
@@ -421,7 +420,7 @@ def conversations(rows: list[dict]) -> list:
 
 
 # --------------------------------------------------------------------------- #
-# Reconstructed pcap (opens in real Wireshark)
+# Reconstructed pcap (opens in any pcap viewer)
 # --------------------------------------------------------------------------- #
 
 def _ipv4(src: str, dst: str, payload: bytes) -> bytes:
@@ -495,7 +494,7 @@ def list_packets(history, *, expr: str = "", limit: int = 800) -> dict:
     need_body = "contains" in (expr or "").lower()
     summaries = history.list(hide_noise=False, limit=limit)
     t0 = summaries[-1]["timestamp"] if summaries else 0
-    # list() is newest-first; Wireshark is oldest-first
+    # list() is newest-first; pcap viewers are usually oldest-first
     summaries = list(reversed(summaries))
     t0 = summaries[0]["timestamp"] if summaries else 0
     packets = []

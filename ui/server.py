@@ -455,6 +455,15 @@ def create_app(ctx) -> FastAPI:
     def findings():
         return ctx.passive.report()
 
+    @app.get("/api/components")
+    def components_list():
+        return ctx.passive.components.public()
+
+    @app.post("/api/components/recheck")
+    async def components_recheck():
+        await ctx.passive.components.recheck()
+        return ctx.passive.components.public()
+
     # ---------------------------------------------------- payload/issue libs
 
     @app.get("/api/payload-sets")

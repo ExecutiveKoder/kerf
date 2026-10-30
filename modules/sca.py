@@ -34,6 +34,7 @@ ECO = {
     "cargo": "crates.io",
     "rubygems": "RubyGems",
     "maven": "Maven",
+    "packagist": "Packagist",
 }
 
 
@@ -123,6 +124,24 @@ def parse_gemfile_lock(text: str) -> list[dict]:
     return out
 
 
+def parse_composer_lock(text: str) -> list[dict]:
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    out = []
+    for section in ("packages", "packages-dev"):
+        for meta in data.get(section) or []:
+            name = (meta or {}).get("name")
+            ver = str((meta or {}).get("version") or "").lstrip("vV")
+            if name and ver and not ver.startswith("dev-"):
+                row = _pkg("packagist", name, ver)
+                if section == "packages-dev":
+                    row["dev"] = True
+                out.append(row)
+    return out
+
+
 def parse_any(path: str, text: str) -> list[dict]:
     name = Path(path).name.lower()
     if name in ("requirements.txt", "requirements-dev.txt"):
@@ -135,9 +154,13 @@ def parse_any(path: str, text: str) -> list[dict]:
         return parse_cargo_lock(text)
     if name == "gemfile.lock":
         return parse_gemfile_lock(text)
+    if name == "composer.lock":
+        return parse_composer_lock(text)
     if name.endswith(".txt") and "==" in text:
         return parse_requirements(text)
     if text.lstrip().startswith("{"):
+        if '"content-hash"' in text and '"packages"' in text:
+            return parse_composer_lock(text)
         return parse_package_lock(text)
     return []
 

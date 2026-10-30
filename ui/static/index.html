@@ -818,7 +818,18 @@ Accept-Language: en-US,en;q=0.9
       </div></div>
       <div class="viewbody">
         <div class="sevbar" id="sevbar"></div>
-        <div class="toolbar"><button class="btn" onclick="loadFindings()">Refresh</button></div>
+        <div class="toolbar"><button class="btn" onclick="loadFindings()">Refresh</button>
+          <button class="btn" onclick="recheckComponents()">Re-check components</button></div>
+        <div class="card" id="c-card" style="display:none; margin-bottom:14px">
+          <h3 style="margin:0 0 4px">Components</h3>
+          <p class="meta" style="margin:0 0 10px">Server software and libraries seen by version (PHP, Node.js, nginx, Apache, jQuery…), checked against endoflife.date, NVD and OSV. Only the product and version are sent, never your hosts.</p>
+          <div class="pane-scroll" style="max-height:320px; border:1px solid var(--line); border-radius:10px">
+            <table>
+              <thead><tr><th>Component</th><th>Version</th><th>Status</th><th>CVEs</th><th>Fix</th><th>Hosts</th></tr></thead>
+              <tbody id="c-rows"></tbody>
+            </table>
+          </div>
+        </div>
         <div id="f-list"></div>
       </div>
     </section>
@@ -1729,17 +1740,49 @@ function cvssMeta(f){
   const bits = [f.cve, f.cvss_source || (f.sources||[]).join(', ')].filter(Boolean);
   return bits.length ? `<div class="url">${escapeHtml(bits.join(' · '))}</div>` : '';
 }
+function componentStatus(c){
+  const life = c.lifecycle || {};
+  if (c.status === 'vulnerable') {
+    const sev = c.severity || 'high';
+    const label = c.cve_count ? sev : (life.eol ? 'end of life' : 'outdated');
+    return `<span class="sev ${sev}">${escapeHtml(label.toUpperCase())}${c.max_cvss ? ' ' + Number(c.max_cvss).toFixed(1) : ''}</span>`;
+  }
+  const text = {ok:'up to date', checking:'checking…', pending:'checking…', unversioned:'version hidden',
+                offline:'lookups off', error:'lookup failed'}[c.status] || c.status;
+  return `<span class="meta" title="${escapeHtml(c.error||'')}">${escapeHtml(text)}</span>`;
+}
+async function loadComponents() {
+  let cs = [];
+  try { cs = await api('/api/components'); } catch(e) { return; }
+  $('#c-card').style.display = cs.length ? '' : 'none';
+  $('#c-rows').innerHTML = cs.map(c => `
+    <tr title="${escapeHtml(c.evidence)}">
+      <td>${escapeHtml(c.label)}</td>
+      <td class="mono">${escapeHtml(c.version || '—')}</td>
+      <td>${componentStatus(c)}</td>
+      <td class="mono" title="${escapeHtml((c.cves||[]).map(x => x.id).join(', '))}">${c.cve_count || ''}</td>
+      <td title="${escapeHtml(c.fix)}">${escapeHtml(c.fix)}</td>
+      <td class="mono" title="${escapeHtml(c.hosts.join(', '))}">${escapeHtml(c.hosts.join(', '))}</td>
+    </tr>`).join('');
+  if (cs.some(c => c.status === 'checking' || c.status === 'pending'))
+    setTimeout(() => { if ($('#view-findings').classList.contains('active')) loadFindings(); }, 4000);
+}
+async function recheckComponents() {
+  await api('/api/components/recheck', {method:'POST'});
+  loadFindings();
+}
 async function loadFindings() {
+  loadComponents();
   const fs = await api('/api/findings');
-  const counts = {high:0, medium:0, low:0, info:0};
+  const counts = {critical:0, high:0, medium:0, low:0, info:0};
   fs.forEach(f => counts[f.severity] = (counts[f.severity]||0)+1);
   sevbar($('#sevbar'), counts);
   $('#f-list').innerHTML = fs.length ? fs.map(f => `
     <div class="finding ${f.severity}">
-      <div class="ft"><span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>
+      <div class="ft">${f.cvss != null ? cvssBadge(f) : `<span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>`}
         <span class="title">${escapeHtml(f.title)}</span>
         <span class="check">${escapeHtml(f.check)}</span></div>
-      <div class="detail">${escapeHtml(f.detail)}</div>
+      <div class="detail" style="white-space:pre-line">${escapeHtml(f.detail)}</div>
       <div class="url">${escapeHtml(f.url)}</div>
     </div>`).join('') : '<div class="empty">No findings yet. Browse through the proxy to populate this list.</div>';
 }

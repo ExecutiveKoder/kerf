@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 from core.interceptor import BaseAddon
 from core.http_message import Flow
+from modules.components import ComponentInventory, finding_detail
 
 
 @dataclass
@@ -26,6 +27,7 @@ class Finding:
     flow_id: str
     url: str
     check: str
+    extra: dict = field(default_factory=dict)
 
 
 class PassiveCheck:
@@ -151,30 +153,53 @@ DEFAULT_CHECKS: list[PassiveCheck] = [
 class PassiveScanner(BaseAddon):
     """Runs passive checks on every completed flow; collects findings."""
 
-    def __init__(self, checks: list[PassiveCheck] | None = None) -> None:
+    def __init__(self, checks: list[PassiveCheck] | None = None, *,
+                 lookups: bool = True) -> None:
         self.checks = checks if checks is not None else list(DEFAULT_CHECKS)
         self.findings: list[Finding] = []
         self._seen: set[tuple] = set()  # dedupe by (check,title,host)
+        # Versioned software (PHP, Node.js, nginx, jQuery…) is looked up against
+        # public advisories; only product + version leave the machine.
+        self.components = ComponentInventory(self._component_finding, lookups=lookups)
+
+    def _add(self, f: Finding, host: str, flow: Flow | None = None) -> None:
+        key = (f.check, f.title, host)
+        if key in self._seen:
+            return
+        self._seen.add(key)
+        self.findings.append(f)
+        if flow is not None:
+            flow.notes.append(f"{f.severity}: {f.title}")
+
+    def _component_finding(self, item: dict, host: str, url: str, flow_id: str) -> None:
+        res = item["result"]
+        top = (res.get("cves") or [{}])[0]
+        self._add(Finding(
+            res["severity"], res["title"], finding_detail(res), flow_id, url,
+            "vulnerable-component",
+            extra={"cvss": res.get("max_cvss"), "cve": top.get("id", ""),
+                   "evidence": item["evidence"]},
+        ), host)
 
     async def on_flow_complete(self, flow: Flow) -> None:
         for check in self.checks:
             try:
                 for f in check.run(flow):
-                    key = (f.check, f.title, flow.request.host)
-                    if key in self._seen:
-                        continue
-                    self._seen.add(key)
-                    self.findings.append(f)
-                    flow.notes.append(f"{f.severity}: {f.title}")
+                    self._add(f, flow.request.host, flow)
             except Exception as exc:
                 print(f"[passive] check {check.name} error: {exc!r}")
+        try:
+            self.components.observe(flow)
+        except Exception as exc:
+            print(f"[passive] component fingerprint error: {exc!r}")
 
     def report(self) -> list[dict]:
-        order = {"high": 0, "medium": 1, "low": 2, "info": 3}
+        order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
         return [
             {
                 "severity": f.severity, "title": f.title, "detail": f.detail,
-                "url": f.url, "check": f.check, "flow_id": f.flow_id,
+                "url": f.url, "check": f.check, "flow_id": f.flow_id, **f.extra,
             }
-            for f in sorted(self.findings, key=lambda f: order.get(f.severity, 9))
+            for f in sorted(self.findings, key=lambda f: (
+                order.get(f.severity, 9), -(f.extra.get("cvss") or 0)))
         ]

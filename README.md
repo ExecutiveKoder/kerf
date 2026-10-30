@@ -39,6 +39,7 @@ security testing, not because any proprietary code was copied.
 | BYO-model assistant | ✅ built | `modules/assistant.py` |
 | Projects + HTML/JSON reports | ✅ built | `modules/projects.py`, `modules/reporting.py` |
 | Passive scanner | ✅ built | `modules/passive_scanner.py` |
+| Vulnerable components (PHP, Node.js, nginx, Apache, OpenSSL, jQuery…) | ✅ built | `modules/components.py`: version fingerprints from traffic and repo files (Dockerfile, `.nvmrc`, `composer.json`), checked against endoflife.date, NVD and OSV. Set `NVD_API_KEY` for faster lookups, `KERF_OFFLINE=1` to turn lookups off. |
 | Scan / Payloads | 🟡 engine | Authorized-scope only. No public exploit catalog. |
 
 ## Why the scan engine ships empty

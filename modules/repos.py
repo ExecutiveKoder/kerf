@@ -22,6 +22,7 @@ from pathlib import Path
 
 import httpx
 
+from modules import components
 from modules import cvss as cvsslib
 from modules import sca
 
@@ -31,13 +32,16 @@ SKIP_DIR = {
 }
 LOCKFILES = {
     "requirements.txt", "requirements-dev.txt", "package-lock.json",
-    "go.mod", "cargo.lock", "gemfile.lock",
+    "go.mod", "cargo.lock", "gemfile.lock", "composer.lock",
 }
 SOURCE_EXT = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".vue",
     ".go", ".rb", ".java", ".php", ".cs", ".rs",
 }
 SOURCE_NAMES = {".env", ".env.local", ".env.production", "dockerfile"}
+# Files that pin a runtime version (PHP, Node.js, nginx…).
+RUNTIME_NAMES = {"dockerfile", ".nvmrc", ".node-version", "package.json",
+                 "composer.json"}
 MAX_FILES = 400
 MAX_BYTES = 400_000
 PRIORITY_NAMES = {
@@ -315,7 +319,9 @@ def _skip_path(path: str) -> bool:
 
 def _want_source(path: str) -> bool:
     name = Path(path).name.lower()
-    if name in SOURCE_NAMES or name in PRIORITY_NAMES:
+    if name in SOURCE_NAMES or name in PRIORITY_NAMES or name in RUNTIME_NAMES:
+        return True
+    if name.endswith(".dockerfile"):
         return True
     ext = Path(path).suffix.lower()
     if name.startswith(".env"):
@@ -379,9 +385,48 @@ def _source_priority(path: str) -> int:
     name = Path(path).name.lower()
     if name.startswith(".env") or name in PRIORITY_NAMES:
         return 0
+    if name in RUNTIME_NAMES and path.count("/") <= 2:
+        return 1
     if "secret" in name or "credential" in name or name.endswith(".pem"):
         return 1
     return 2
+
+
+async def runtime_findings(hints: list[dict], repo: str) -> list[dict]:
+    """End-of-life / known-CVE runtimes pinned in Dockerfiles, .nvmrc, etc."""
+    out = []
+    done: dict[tuple, dict] = {}
+    for h in hints:
+        k = (h["key"], h["version"])
+        if k not in done:
+            try:
+                done[k] = await components.assess(h["key"], h["version"])
+            except Exception:
+                done[k] = {}
+        res = done[k]
+        if res.get("status") != "vulnerable":
+            continue
+        top = (res.get("cves") or [{}])[0]
+        out.append({
+            "id": f"runtime.{h['key']}",
+            "kind": "runtime",
+            "severity": res["severity"],
+            "cvss": res.get("max_cvss"),
+            "cvss_vector": top.get("cvss_vector", ""),
+            "cvss_source": "NVD" if res.get("max_cvss") is not None else "",
+            "cve": top.get("id", ""),
+            "cves": [c["id"] for c in res.get("cves") or []][:50],
+            "sources": ["endoflife.date", "NVD"],
+            "title": res["title"],
+            "detail": components.finding_detail(res),
+            "path": h.get("path", ""),
+            "line": h.get("line", 0),
+            "evidence": h["evidence"],
+            "repo": repo,
+            "refs": [f"https://nvd.nist.gov/vuln/detail/{c['id']}"
+                     for c in (res.get("cves") or [])[:5]],
+        })
+    return out
 
 
 def scan_text(path: str, text: str) -> list[dict]:
@@ -735,6 +780,7 @@ class RepoStore:
                         files += 1
                         packages.extend(sca.parse_any(path, text))
                     batch = 16
+                    runtimes: list[dict] = []
                     for i in range(0, len(sources), batch):
                         if self._want_stop(repo_id):
                             return self._finish_stop(
@@ -747,6 +793,7 @@ class RepoStore:
                             if not isinstance(text, str) or not text:
                                 continue
                             files += 1
+                            runtimes.extend(components.runtime_hints(path, text))
                             for hit in scan_text(path, text):
                                 hit["repo"] = f"{row['owner']}/{row['name']}"
                                 findings.append(hit)
@@ -759,6 +806,10 @@ class RepoStore:
                     if self._want_stop(repo_id):
                         return self._finish_stop(
                             row, findings, packages, files, files_total)
+                    if runtimes:
+                        note(f"Checking {len(runtimes)} runtime version(s)…")
+                        findings.extend(await runtime_findings(
+                            runtimes, f"{row['owner']}/{row['name']}"))
                     for f in dep:
                         cve = f.get("cve") or ""
                         label = cve or f.get("id") or "advisory"

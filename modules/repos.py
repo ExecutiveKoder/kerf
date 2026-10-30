@@ -32,7 +32,8 @@ SKIP_DIR = {
 }
 LOCKFILES = {
     "requirements.txt", "requirements-dev.txt", "package-lock.json",
-    "go.mod", "cargo.lock", "gemfile.lock", "composer.lock",
+    "go.mod", "cargo.lock", "gemfile.lock", "composer.lock", "yarn.lock",
+    "pnpm-lock.yaml",
 }
 SOURCE_EXT = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".vue",
@@ -825,6 +826,7 @@ class RepoStore:
                             "cve": cve,
                             "cves": f.get("cves") or [],
                             "kev": f.get("kev"),
+                            "epss": f.get("epss"),
                             "sources": f.get("sources") or [],
                             "title": f"{f.get('name')} {f.get('version')} — {label}",
                             "detail": summary or f"{label} affects {f.get('name')} {f.get('version')}.",

@@ -6,6 +6,7 @@ together.
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -67,7 +68,8 @@ def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
     proxy = ProxyServer(proxy_host, proxy_port, interceptor)
 
     history = HistoryStore(db_path)
-    passive = PassiveScanner()
+    home = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    passive = PassiveScanner(inventory_path=home / "components.json")
     repeater = Repeater(proxy)
 
     # Active engine wired to the proxy's upstream path. It ships with the bundled
@@ -97,6 +99,7 @@ def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
                               projects_dir=projects_dir)
 
     events = EventLog()
+    passive.components.events = events
     rules = RuleEngine()
     session = SessionHandler(send_raw=repeater.send_raw)
     intercept = InterceptQueue(interceptor, rules=rules)
@@ -147,4 +150,6 @@ async def run(proxy_host="127.0.0.1", proxy_port=8080,
     await asyncio.gather(
         ctx.proxy.serve_forever(),
         server.serve(),
+        # Daily re-check of every component seen; alerts on new CVEs / KEV.
+        ctx.passive.components.watch(),
     )

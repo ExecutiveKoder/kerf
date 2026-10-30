@@ -11,6 +11,7 @@ stringized annotations break body parsing. Request models are module-level for
 the same reason.
 """
 
+import asyncio
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import urlsplit
@@ -457,12 +458,24 @@ def create_app(ctx) -> FastAPI:
 
     @app.get("/api/components")
     def components_list():
-        return ctx.passive.components.public()
+        return ctx.passive.components.summary()
 
     @app.post("/api/components/recheck")
     async def components_recheck():
-        await ctx.passive.components.recheck()
-        return ctx.passive.components.public()
+        # Fresh lookups can take a while (NVD rate limits); run in background.
+        inv = ctx.passive.components
+        for item in inv.items.values():
+            if item["version"]:
+                item["status"] = "checking"
+        task = asyncio.create_task(inv.recheck())
+        inv._tasks.add(task)
+        task.add_done_callback(inv._tasks.discard)
+        return inv.summary()
+
+    @app.post("/api/components/alerts/clear")
+    def components_alerts_clear():
+        ctx.passive.components.dismiss_alerts()
+        return ctx.passive.components.summary()
 
     # ---------------------------------------------------- payload/issue libs
 

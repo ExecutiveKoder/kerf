@@ -33,13 +33,13 @@ security testing, not because any proprietary code was copied.
 | Endpoints + OpenAPI import | ✅ built | `modules/analyzer.py`, `modules/openapi.py` |
 | In-scope crawler | ✅ built | `modules/crawler.py` |
 | Log + local OAST listener | ✅ built | `modules/logger.py`, `modules/oast.py` |
-| Dependency SCA + CycloneDX SBOM (OSV, CISA KEV) | ✅ built | `modules/sca.py` |
+| Dependency SCA + CycloneDX SBOM (OSV, CISA KEV, EPSS; incl. yarn/pnpm/composer locks) | ✅ built | `modules/sca.py` |
 | GitHub repo list + code/secret/OSV scan | ✅ built | `modules/repos.py` |
 | Outbound Tor / SOCKS / HTTP + client certs | ✅ built | `modules/upstream.py` |
 | BYO-model assistant | ✅ built | `modules/assistant.py` |
 | Projects + HTML/JSON reports | ✅ built | `modules/projects.py`, `modules/reporting.py` |
 | Passive scanner | ✅ built | `modules/passive_scanner.py` |
-| Vulnerable components (PHP, Node.js, nginx, Apache, OpenSSL, jQuery…) | ✅ built | `modules/components.py`: version fingerprints from traffic and repo files (Dockerfile, `.nvmrc`, `composer.json`), checked against endoflife.date, NVD, OSV and CISA KEV (exploited-in-the-wild CVEs sort first). Set `NVD_API_KEY` for faster lookups, `KERF_OFFLINE=1` to turn lookups off. |
+| Vulnerable components (PHP, Node.js, nginx, Apache, OpenSSL, jQuery…) | ✅ built | `modules/components.py`: version fingerprints from traffic and repo files (Dockerfile, `.nvmrc`, `composer.json`), checked against endoflife.date, NVD, OSV, Ubuntu/Debian trackers (backport-aware), CISA KEV and FIRST EPSS. Exploited, then likely-to-be-exploited CVEs sort first. The inventory is saved and re-checked daily, with alerts when something you run picks up a new CVE or KEV entry, and it is included in reports. Set `NVD_API_KEY` for faster lookups, `KERF_OFFLINE=1` to turn lookups off. |
 | Scan / Payloads | 🟡 engine | Authorized-scope only. No public exploit catalog. |
 
 ## Why the scan engine ships empty

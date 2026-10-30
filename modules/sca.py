@@ -6,6 +6,7 @@ Lockfiles are looked up in several public advisory sources:
   * GitHub Advisory (GHSA → CVE / CVSS)
   * NVD (CVE → official CVSS)
   * CISA KEV (CVE → exploited in the wild)
+  * FIRST EPSS (CVE → probability of exploitation in the next 30 days)
 
 Results are sorted by CVSS, high to low.
 """
@@ -30,6 +31,9 @@ NVD = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 GH_ADV = "https://api.github.com/advisories"
 KEV = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 KEV_TTL = 12 * 3600
+EPSS = "https://api.first.org/data/v1/epss"
+EPSS_TTL = 24 * 3600
+EPSS_LIKELY = 0.1  # ≥10% chance of exploitation in 30 days
 
 ECO = {
     "pypi": "PyPI",
@@ -146,6 +150,69 @@ def parse_composer_lock(text: str) -> list[dict]:
     return out
 
 
+def _npm_name(spec: str) -> tuple[str, str]:
+    """'@scope/pkg@^1.0' → ('@scope/pkg', '^1.0')."""
+    at = spec.find("@", 1)
+    if at < 0:
+        return spec, ""
+    return spec[:at], spec[at + 1:]
+
+
+LOCAL_PROTOCOLS = ("workspace:", "link:", "file:", "portal:", "patch:", "exec:")
+
+
+def parse_yarn_lock(text: str) -> list[dict]:
+    """yarn v1 (`version "1.2.3"`) and Berry (`version: 1.2.3`) lockfiles."""
+    out = []
+    names: list[str] = []
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line[0].isspace():
+            names = []
+            for spec in line.rstrip().rstrip(":").split(","):
+                name, rng = _npm_name(spec.strip().strip('"'))
+                if name and rng and not rng.startswith(LOCAL_PROTOCOLS) \
+                        and not name.startswith("__"):
+                    names.append(name)
+            names = list(dict.fromkeys(names))
+            continue
+        m = re.match(r' {2}version:?\s+"?([^"\s]+)"?\s*$', line)
+        if m and names:
+            for name in names:
+                out.append(_pkg("npm", name, m.group(1)))
+            names = []
+    return out
+
+
+def parse_pnpm_lock(text: str) -> list[dict]:
+    """pnpm-lock.yaml v5 (`/pkg/1.2.3`) through v9 (`pkg@1.2.3(peer)`)."""
+    import yaml
+    try:
+        data = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+    out = []
+    for key, meta in (data.get("packages") or {}).items():
+        meta = meta or {}
+        k = re.sub(r"\(.*$", "", str(key).lstrip("/"))
+        v5 = re.match(r"(@?[^@/]+(?:/[^@/]+)?)/(\d[^/_]*)", k)
+        if v5:
+            name, ver = v5.group(1), v5.group(2)
+        elif k.find("@", 1) > 0:
+            name, ver = _npm_name(k)
+        else:
+            continue
+        ver = str(meta.get("version") or ver)
+        if not re.match(r"\d", ver):
+            continue
+        row = _pkg("npm", meta.get("name") or name, ver)
+        if meta.get("dev"):
+            row["dev"] = True
+        out.append(row)
+    return out
+
+
 def parse_any(path: str, text: str) -> list[dict]:
     name = Path(path).name.lower()
     if name in ("requirements.txt", "requirements-dev.txt"):
@@ -160,6 +227,10 @@ def parse_any(path: str, text: str) -> list[dict]:
         return parse_gemfile_lock(text)
     if name == "composer.lock":
         return parse_composer_lock(text)
+    if name == "yarn.lock":
+        return parse_yarn_lock(text)
+    if name in ("pnpm-lock.yaml", "pnpm-lock.yml"):
+        return parse_pnpm_lock(text)
     if name.endswith(".txt") and "==" in text:
         return parse_requirements(text)
     if text.lstrip().startswith("{"):
@@ -203,7 +274,11 @@ def _osv_cvss(vuln: dict) -> tuple[float | None, str]:
 
 
 def _osv_row(pkg: dict, vuln: dict) -> dict:
-    aliases = vuln.get("aliases") or []
+    # Distro records (UBUNTU-CVE-…, DEBIAN-CVE-…) name the CVE in `upstream`
+    # or inside their own id rather than in `aliases`.
+    aliases = list(dict.fromkeys(
+        (vuln.get("aliases") or []) + cvsslib.cves_of(vuln.get("upstream") or [])
+        + re.findall(r"CVE-\d{4}-\d{4,}", vuln.get("id") or "")))
     ids = [vuln.get("id"), *aliases]
     cves = cvsslib.cves_of(ids)
     score, vector = _osv_cvss(vuln)
@@ -441,6 +516,65 @@ def tag_kev(findings: list[dict], catalog: dict[str, dict]) -> list[dict]:
     return findings
 
 
+def _epss_path() -> Path:
+    return _cache_path().with_name("epss-cache.json")
+
+
+async def epss_scores(cves, client: httpx.AsyncClient | None = None) -> dict[str, dict]:
+    """FIRST EPSS probability + percentile per CVE, cached for 24h."""
+    try:
+        cache = json.loads(_epss_path().read_text())
+    except Exception:
+        cache = {}
+    now = time.time()
+    want = sorted({c for c in cvsslib.cves_of(cves)})
+    need = [c for c in want if now - (cache.get(c) or {}).get("t", 0) > EPSS_TTL]
+    own = client is None
+    client = client or httpx.AsyncClient(timeout=30)
+    try:
+        for i in range(0, len(need), 50):
+            chunk = need[i:i + 50]
+            try:
+                r = await client.get(EPSS, params={"cve": ",".join(chunk)},
+                                     headers={"User-Agent": "Kerf"})
+                r.raise_for_status()
+                rows = r.json().get("data") or []
+            except Exception:
+                break
+            for c in chunk:
+                cache[c] = {"t": now, "v": None}
+            for row in rows:
+                cve = str(row.get("cve") or "").upper()
+                try:
+                    cache[cve] = {"t": now, "v": {
+                        "epss": float(row.get("epss")),
+                        "percentile": float(row.get("percentile"))}}
+                except (TypeError, ValueError):
+                    pass
+    finally:
+        if own:
+            await client.aclose()
+    if need:
+        try:
+            _epss_path().parent.mkdir(parents=True, exist_ok=True)
+            _epss_path().write_text(json.dumps(cache))
+        except Exception:
+            pass
+    return {c: cache[c]["v"] for c in want if (cache.get(c) or {}).get("v")}
+
+
+def tag_epss(findings: list[dict], scores: dict[str, dict]) -> list[dict]:
+    """Attach the highest EPSS score among a finding's CVEs."""
+    for f in findings:
+        ids = cvsslib.cves_of([f.get("cve"), f.get("id"), *(f.get("cves") or [])])
+        hits = [scores[c] for c in ids if c in scores]
+        if hits:
+            best = max(hits, key=lambda h: h["epss"])
+            f["epss"] = best["epss"]
+            f["epss_percentile"] = best["percentile"]
+    return findings
+
+
 def _cluster_keys(f: dict) -> set[tuple]:
     eco = f.get("ecosystem") or ""
     name = (f.get("name") or "").lower()
@@ -605,6 +739,8 @@ async def query_osv(packages: list[dict], *, github_token: str = "") -> list[dic
                 for pkg, vid in pairs]
     out = dedupe_osv(await _enrich(findings, github_token=github_token))
     tag_kev(out, await kev_catalog())
+    tag_epss(out, await epss_scores(
+        [c for f in out for c in [f.get("cve"), *(f.get("cves") or [])]]))
     out.sort(key=cvsslib.sort_key)
     return out
 

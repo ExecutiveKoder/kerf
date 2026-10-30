@@ -329,6 +329,10 @@
   .sev.low { background: rgba(106,168,232,.16); color: var(--sev-low); }
   .sev.info, .sev.unknown { background: rgba(126,138,166,.16); color: var(--sev-info); }
   .sev.kev { background: var(--sev-critical); color: #fff; }
+  .sev.epss { background: rgba(228,178,79,.16); color: var(--sev-med); }
+  .c-alert { border-left: 3px solid var(--sev-critical); padding: 8px 12px; margin: 0 0 8px;
+             background: rgba(196,61,58,.08); border-radius: 8px; font-size: 12.5px; }
+  .c-alert .when { color: var(--ink-faint); font-family: var(--mono); font-size: 11px; margin-left: 6px; }
   .conf { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
           border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
   .finding .title { font-weight: 700; font-size: 13.5px; }
@@ -823,7 +827,8 @@ Accept-Language: en-US,en;q=0.9
           <button class="btn" onclick="recheckComponents()">Re-check components</button></div>
         <div class="card" id="c-card" style="display:none; margin-bottom:14px">
           <h3 style="margin:0 0 4px">Components</h3>
-          <p class="meta" style="margin:0 0 10px">Server software and libraries seen by version (PHP, Node.js, nginx, Apache, jQuery…), checked against endoflife.date, NVD, OSV and the CISA Known Exploited Vulnerabilities list. Only the product and version are sent, never your hosts.</p>
+          <p class="meta" style="margin:0 0 10px">Server software and libraries seen by version (PHP, Node.js, nginx, Apache, jQuery…), checked against endoflife.date, NVD, OSV, Ubuntu/Debian trackers, the CISA Known Exploited Vulnerabilities list and EPSS. Re-checked daily. Only the product and version are sent, never your hosts. <span id="c-checked"></span></p>
+          <div id="c-alerts"></div>
           <div class="pane-scroll" style="max-height:320px; border:1px solid var(--line); border-radius:10px">
             <table>
               <thead><tr><th>Component</th><th>Version</th><th>Status</th><th>CVEs</th><th>Fix</th><th>Hosts</th></tr></thead>
@@ -1741,10 +1746,15 @@ function kevBadge(k){
 function cvssBadge(f){
   const sev = f.severity || 'unknown';
   const score = (f.cvss === 0 || f.cvss) ? Number(f.cvss).toFixed(1) : '';
-  return kevBadge(f.kev) + `<span class="sev ${sev}">${escapeHtml(sev.toUpperCase())}${score ? ' ' + score : ''}</span>`;
+  return kevBadge(f.kev) + (f.kev ? '' : epssBadge(f.epss)) + `<span class="sev ${sev}">${escapeHtml(sev.toUpperCase())}${score ? ' ' + score : ''}</span>`;
+}
+function epssBadge(p){
+  if (!p || p < 0.1) return '';
+  return `<span class="sev epss" title="FIRST EPSS: ${(p*100).toFixed(1)}% chance of exploitation in the next 30 days">EPSS ${Math.round(p*100)}%</span>`;
 }
 function cvssMeta(f){
-  const bits = [f.cve, f.cvss_source || (f.sources||[]).join(', ')].filter(Boolean);
+  const epss = f.epss != null ? 'EPSS ' + (f.epss*100).toFixed(1) + '%' : '';
+  const bits = [f.cve, epss, f.cvss_source || (f.sources||[]).join(', ')].filter(Boolean);
   return bits.length ? `<div class="url">${escapeHtml(bits.join(' · '))}</div>` : '';
 }
 function componentStatus(c){
@@ -1752,7 +1762,8 @@ function componentStatus(c){
   if (c.status === 'vulnerable') {
     const sev = c.severity || 'high';
     const label = c.cve_count ? sev : (life.eol ? 'end of life' : 'outdated');
-    const kev = c.kev_count ? `<span class="sev kev" title="${c.kev_count} CVE(s) on the CISA Known Exploited Vulnerabilities list">EXPLOITED</span> ` : '';
+    const kev = c.kev_count ? `<span class="sev kev" title="${c.kev_count} CVE(s) on the CISA Known Exploited Vulnerabilities list">EXPLOITED</span> `
+      : (c.likely_count ? epssBadge(c.max_epss) + ' ' : '');
     return kev + `<span class="sev ${sev}">${escapeHtml(label.toUpperCase())}${c.max_cvss ? ' ' + Number(c.max_cvss).toFixed(1) : ''}</span>`;
   }
   const text = {ok:'up to date', checking:'checking…', pending:'checking…', unversioned:'version hidden',
@@ -1760,13 +1771,22 @@ function componentStatus(c){
   return `<span class="meta" title="${escapeHtml(c.error||'')}">${escapeHtml(text)}</span>`;
 }
 async function loadComponents() {
-  let cs = [];
-  try { cs = await api('/api/components'); } catch(e) { return; }
-  $('#c-card').style.display = cs.length ? '' : 'none';
+  let data;
+  try { data = await api('/api/components'); } catch(e) { return; }
+  const cs = data.items || [], alerts = data.alerts || [];
+  $('#c-card').style.display = (cs.length || alerts.length) ? '' : 'none';
+  $('#c-checked').textContent = !data.lookups ? 'Lookups are off (KERF_OFFLINE).'
+    : data.last_check ? 'Last full re-check ' + new Date(data.last_check * 1000).toLocaleString() + '.' : '';
+  $('#c-alerts').innerHTML = alerts.length ? alerts.slice(0, 5).map(a => `
+    <div class="c-alert"><b>${a.new_kev && a.new_kev.length ? 'Newly exploited' : 'New vulnerability'}</b>
+      <span class="when">${escapeHtml(new Date(a.ts * 1000).toLocaleString())}</span><br>
+      ${escapeHtml(a.message)}${a.hosts && a.hosts.length ? ' · on ' + escapeHtml(a.hosts.join(', ')) : ''}
+      ${a.fix ? '<br><span class="meta">' + escapeHtml(a.fix) + '</span>' : ''}</div>`).join('')
+    + `<div class="toolbar" style="margin:0 0 10px"><button class="btn" onclick="clearComponentAlerts()">Dismiss alerts</button></div>` : '';
   $('#c-rows').innerHTML = cs.map(c => `
     <tr title="${escapeHtml(c.evidence)}">
-      <td>${escapeHtml(c.label)}</td>
-      <td class="mono">${escapeHtml(c.version || '—')}</td>
+      <td>${escapeHtml(c.label)}${c.distro ? ' <span class="meta">(' + escapeHtml(c.distro.ecosystem) + ' ' + escapeHtml(c.distro.package) + ')</span>' : ''}</td>
+      <td class="mono">${escapeHtml(c.display_version || c.version || '—')}</td>
       <td>${componentStatus(c)}</td>
       <td class="mono" title="${escapeHtml((c.cves||[]).map(x => x.id + (x.kev ? ' (exploited)' : '')).join(', '))}">${c.cve_count || ''}${c.kev_count ? ' · ' + c.kev_count + ' KEV' : ''}</td>
       <td title="${escapeHtml(c.fix)}">${escapeHtml(c.fix)}</td>
@@ -1779,6 +1799,10 @@ async function recheckComponents() {
   await api('/api/components/recheck', {method:'POST'});
   loadFindings();
 }
+async function clearComponentAlerts() {
+  await api('/api/components/alerts/clear', {method:'POST'});
+  loadComponents();
+}
 async function loadFindings() {
   loadComponents();
   const fs = await api('/api/findings');
@@ -1787,7 +1811,7 @@ async function loadFindings() {
   sevbar($('#sevbar'), counts);
   $('#f-list').innerHTML = fs.length ? fs.map(f => `
     <div class="finding ${f.severity}">
-      <div class="ft">${f.cvss != null ? cvssBadge(f) : kevBadge(f.kev) + `<span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>`}
+      <div class="ft">${f.cvss != null ? cvssBadge(f) : kevBadge(f.kev) + (f.kev ? '' : epssBadge(f.epss)) + `<span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>`}
         <span class="title">${escapeHtml(f.title)}</span>
         <span class="check">${escapeHtml(f.check)}</span></div>
       <div class="detail" style="white-space:pre-line">${escapeHtml(f.detail)}</div>
@@ -2870,7 +2894,8 @@ function renderRepoFindings(repos) {
     : lastRepos;
   const findings = [];
   pool.forEach(r => (r.findings || []).forEach(f => findings.push(f)));
-  findings.sort((a, b) => (!!b.kev - !!a.kev)
+  const tier = f => f.kev ? 0 : ((f.epss || 0) >= 0.1 ? 1 : 2);
+  findings.sort((a, b) => (tier(a) - tier(b))
     || ((b.cvss == null ? -1 : b.cvss) - (a.cvss == null ? -1 : a.cvss)));
   const counts = {critical:0, high:0, medium:0, low:0};
   findings.forEach(f => { counts[f.severity] = (counts[f.severity] || 0) + 1; });

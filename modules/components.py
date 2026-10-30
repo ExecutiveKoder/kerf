@@ -12,7 +12,10 @@ life, so the owner knows what to patch:
                     latest patch in it.
   * NVD (by CPE)  — CVEs for runtimes and servers (PHP, Node.js, nginx…).
   * OSV           — CVEs for npm / Packagist packages (jQuery, Express…).
+  * OSV distro    — for Ubuntu / Debian builds (PHP/8.1.2-1ubuntu2.14), the
+                    distro's own tracker, which knows about backported fixes.
   * CISA KEV      — which of those CVEs are being exploited in the wild.
+  * FIRST EPSS    — how likely each CVE is to be exploited in the next 30 days.
 
 Only the product name and version leave the machine. Never the host or URL.
 """
@@ -101,6 +104,10 @@ GENERATOR_PAT = re.compile(
 
 MAX_SCAN = 512_000
 
+# Debian/Ubuntu source package per product. PHP is versioned: php8.1.
+DISTRO_PKG = {"nginx": "nginx", "apache": "apache2", "openssl": "openssl",
+              "nodejs": "nodejs"}
+
 
 # ------------------------------------------------------------- versions
 
@@ -147,7 +154,32 @@ def _body(resp) -> bytes:
 
 def _hit(key: str, version: str, evidence: str, backport: bool = False) -> dict:
     return {"key": key, "version": version, "evidence": evidence[:160],
-            "backport": backport}
+            "backport": backport, "distro": None}
+
+
+def distro_package(key: str, raw: str) -> dict | None:
+    """Ubuntu/Debian package for a full build string such as
+    '8.1.2-1ubuntu2.14' or '8.2.7-1~deb12u1'. None for upstream or PPA builds,
+    which the distro trackers don't cover."""
+    low = raw.lower()
+    if "-" not in raw or "sury" in low:
+        return None
+    if "ubuntu" in low:
+        eco = "Ubuntu"
+    elif re.search(r"[~+]deb\d+u\d+|\+deb\d+", low):
+        eco = "Debian"
+    else:
+        return None
+    if key == "php":
+        m = re.match(r"(\d+)\.(\d+)", raw)
+        if not m:
+            return None
+        pkg = f"php{m.group(1)}.{m.group(2)}"
+    else:
+        pkg = DISTRO_PKG.get(key)
+    if not pkg:
+        return None
+    return {"ecosystem": eco, "package": pkg, "version": raw}
 
 
 def from_headers(headers) -> list[dict]:
@@ -162,7 +194,10 @@ def from_headers(headers) -> list[dict]:
             key = HEADER_TOKENS.get(m.group(1).lower())
             if key:
                 found.add(key)
-                out.append(_hit(key, m.group(2), f"{name}: {value}", backport))
+                hit = _hit(key, m.group(2), f"{name}: {value}", backport)
+                raw = re.match(r"[^\s(),;]+", value[m.start(2):]).group(0)
+                hit["distro"] = distro_package(key, raw)
+                out.append(hit)
         # Versionless tokens, e.g. "X-Powered-By: Express".
         for tok in re.split(r"[\s,;/]+", value):
             key = HEADER_TOKENS.get(tok.lower())
@@ -208,7 +243,7 @@ def fingerprint(flow) -> list[dict]:
     seen, out = set(), []
     for h in hits:
         h["version"] = clean_version(h["version"])
-        k = (h["key"], h["version"])
+        k = (h["key"], h["version"], (h["distro"] or {}).get("version", ""))
         if k not in seen:
             seen.add(k)
             out.append(h)
@@ -367,8 +402,9 @@ def lifecycle(cycles: list[dict], version: str) -> dict:
     return out
 
 
-async def _eol_cycles(client: httpx.AsyncClient, slug: str) -> list[dict]:
-    hit = _cache.get("eol:" + slug)
+async def _eol_cycles(client: httpx.AsyncClient, slug: str,
+                      fresh: bool = False) -> list[dict]:
+    hit = None if fresh else _cache.get("eol:" + slug)
     if hit is not None:
         return hit
     r = await client.get(f"{EOL_API}/{slug}.json")
@@ -434,9 +470,10 @@ def nvd_rows(payload: dict, cpe: str, version: str) -> list[dict]:
     return rows
 
 
-async def _nvd(client: httpx.AsyncClient, cpe: str, version: str) -> list[dict]:
+async def _nvd(client: httpx.AsyncClient, cpe: str, version: str,
+               fresh: bool = False) -> list[dict]:
     ck = f"nvd:{cpe}:{version}"
-    hit = _cache.get(ck)
+    hit = None if fresh else _cache.get(ck)
     if hit is not None:
         return hit
     key = (os.environ.get("NVD_API_KEY") or "").strip()
@@ -459,9 +496,10 @@ async def _nvd(client: httpx.AsyncClient, cpe: str, version: str) -> list[dict]:
     return rows
 
 
-async def _osv(ecosystem: str, name: str, version: str) -> list[dict]:
+async def _osv(ecosystem: str, name: str, version: str,
+               fresh: bool = False) -> list[dict]:
     ck = f"osv:{ecosystem}:{name}:{version}"
-    hit = _cache.get(ck)
+    hit = None if fresh else _cache.get(ck)
     if hit is not None:
         return hit
     found = await sca.query_osv(
@@ -477,38 +515,57 @@ async def _osv(ecosystem: str, name: str, version: str) -> list[dict]:
 SEV_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0, "unknown": 0}
 
 
-async def assess(key: str, version: str, *, backport: bool = False) -> dict:
-    """Lifecycle + known CVEs for one product version."""
+async def assess(key: str, version: str, *, backport: bool = False,
+                 distro: dict | None = None, fresh: bool = False) -> dict:
+    """Lifecycle + known CVEs for one product version.
+
+    With `distro` (a Debian/Ubuntu build), CVEs come from that distro's
+    tracker for the exact package revision instead of upstream ranges."""
     meta = PRODUCTS.get(key) or {}
     label = meta.get("label") or key
     out = {"key": key, "label": label, "version": version, "cves": [],
-           "lifecycle": {}, "errors": []}
+           "lifecycle": {}, "errors": [], "distro": distro}
     async with httpx.AsyncClient(timeout=40) as client:
         if meta.get("eol"):
             try:
-                out["lifecycle"] = lifecycle(await _eol_cycles(client, meta["eol"]), version)
+                out["lifecycle"] = lifecycle(
+                    await _eol_cycles(client, meta["eol"], fresh), version)
             except Exception as exc:
                 out["errors"].append(f"endoflife.date: {exc}")
+        rows: dict[str, dict] = {}
+        if distro:
+            try:
+                for r in await _osv(distro["ecosystem"], distro["package"],
+                                    distro["version"], fresh):
+                    rows.setdefault(r["id"], r)
+            except Exception as exc:
+                out["errors"].append(f"OSV {distro['ecosystem']}: {exc}")
         # A bare major ("node:18") is a moving tag; only lifecycle applies.
-        if _parts(version) >= 2 or key == "wordpress":
-            rows: dict[str, dict] = {}
+        elif _parts(version) >= 2 or key == "wordpress":
             for cpe in meta.get("cpe") or []:
                 try:
-                    for r in await _nvd(client, cpe, version):
+                    for r in await _nvd(client, cpe, version, fresh):
                         rows.setdefault(r["id"], r)
                 except Exception as exc:
                     out["errors"].append(f"NVD: {exc}")
             if meta.get("osv"):
                 try:
-                    for r in await _osv(*meta["osv"], version):
+                    for r in await _osv(*meta["osv"], version, fresh):
                         rows.setdefault(r["id"], r)
                 except Exception as exc:
                     out["errors"].append(f"OSV: {exc}")
+        if rows:
             try:
                 sca.tag_kev(list(rows.values()), await sca.kev_catalog(client))
             except Exception as exc:
                 out["errors"].append(f"CISA KEV: {exc}")
-            out["cves"] = sorted(rows.values(), key=cvsslib.sort_key)
+            try:
+                sca.tag_epss(list(rows.values()), await sca.epss_scores(
+                    [c for r in rows.values() for c in [r["id"], *(r.get("cves") or [])]],
+                    client))
+            except Exception as exc:
+                out["errors"].append(f"EPSS: {exc}")
+        out["cves"] = sorted(rows.values(), key=cvsslib.sort_key)
     return summarize(out, backport=backport)
 
 
@@ -516,12 +573,23 @@ def summarize(res: dict, *, backport: bool = False) -> dict:
     """Severity, title and the concrete upgrade advice for an assessment."""
     label, version = res["label"], res["version"]
     life, cves = res.get("lifecycle") or {}, res.get("cves") or []
+    distro = res.get("distro")
+    if distro:
+        # The distro patches its own package; upstream "latest" doesn't apply.
+        life = {**life, "outdated": False}
+        version = distro["version"]
     scores = [c["cvss"] for c in cves if c.get("cvss") is not None]
     top = max(scores) if scores else None
     kev = [c for c in cves if c.get("kev")]
+    likely = [c for c in cves if not c.get("kev")
+              and (c.get("epss") or 0) >= sca.EPSS_LIKELY]
+    epss = max((c.get("epss") or 0 for c in cves), default=0) or None
     sev = cvsslib.bucket(top) if top is not None else ("medium" if cves else "")
     # Exploited in the wild, or no longer patched at all: never below high.
-    if (kev or life.get("eol")) and SEV_RANK.get(sev, 0) < SEV_RANK["high"]:
+    # A distro may still patch a branch upstream has dropped, so EOL alone
+    # doesn't escalate a distro build.
+    eol_hard = life.get("eol") and not distro
+    if (kev or eol_hard) and SEV_RANK.get(sev, 0) < SEV_RANK["high"]:
         sev = "high"
     if not sev and life.get("outdated"):
         sev = "low"
@@ -529,17 +597,29 @@ def summarize(res: dict, *, backport: bool = False) -> dict:
     bits = []
     if kev:
         bits.append(f"{len(kev)} actively exploited (CISA KEV)")
+    if likely:
+        bits.append(f"{len(likely)} likely to be exploited soon (EPSS ≥{sca.EPSS_LIKELY:.0%})")
     if cves:
-        bits.append(f"{len(cves)} known CVE{'s' if len(cves) != 1 else ''}"
+        where = f" in {distro['ecosystem']}'s tracker" if distro else ""
+        bits.append(f"{len(cves)} open CVE{'s' if len(cves) != 1 else ''}{where}"
                     + (f", worst CVSS {top:.1f}" if top is not None else ""))
-    if life.get("eol"):
+    if eol_hard:
         bits.append(f"branch {life['cycle']} is end of life"
                     + (f" since {life['eol_date']}" if life.get("eol_date") else ""))
     elif life.get("outdated"):
         bits.append(f"behind the latest {life['cycle']}.x patch ({life['latest']})")
 
     fix = []
-    if life.get("eol") and life.get("supported_cycle"):
+    if distro and cves:
+        tool = "apt-get install --only-upgrade"
+        fix.append(f"Update the {distro['ecosystem']} {distro['package']} packages "
+                   f"(`{tool} '{distro['package']}*'`) and restart the service. "
+                   "Some listed issues may not have a distro fix yet.")
+        if life.get("eol"):
+            fix.append(f"Upstream {label} {life['cycle']} is end of life, so fixes now "
+                       f"depend on {distro['ecosystem']} support for this release; plan a "
+                       f"move to {life.get('supported_cycle') or 'a supported branch'}.")
+    elif life.get("eol") and life.get("supported_cycle"):
         fix.append(f"Upgrade to a supported {label} branch "
                    f"(e.g. {life['supported_cycle']} → {life['supported_latest']}).")
     elif life.get("latest") and (cves or life.get("outdated")):
@@ -552,7 +632,7 @@ def summarize(res: dict, *, backport: bool = False) -> dict:
         fix.insert(0, f"Patch first: {ids} {'is' if len(kev) == 1 else 'are'} "
                    "being exploited in the wild"
                    + (", including by ransomware groups." if ransom else "."))
-    if backport and cves:
+    if backport and cves and not distro:
         fix.append("The banner names a Linux distro, which often backports fixes "
                    "without bumping the version. Confirm against the distro's "
                    "security tracker before treating these as open.")
@@ -563,6 +643,8 @@ def summarize(res: dict, *, backport: bool = False) -> dict:
         "cve_count": len(cves),
         "kev_count": len(kev),
         "kev": kev[0]["kev"] if kev else None,
+        "likely_count": len(likely),
+        "max_epss": epss,
         "title": f"{label} {version}: " + "; ".join(bits) if bits else "",
         "fix": " ".join(fix),
         "backport": backport,
@@ -580,6 +662,8 @@ def finding_detail(res: dict, limit: int = 5) -> str:
         tag = ""
         if c.get("kev"):
             tag = " [CISA KEV: exploited" + (", ransomware" if c["kev"].get("ransomware") else "") + "]"
+        elif (c.get("epss") or 0) >= sca.EPSS_LIKELY:
+            tag = f" [EPSS {c['epss']:.0%}]"
         lines.append(f"• {c['id']}{score}{tag}: {c.get('summary') or ''}"[:260])
     extra = len(res.get("cves") or []) - limit
     if extra > 0:
@@ -593,79 +677,197 @@ def finding_detail(res: dict, limit: int = 5) -> str:
 class ComponentInventory:
     """Everything fingerprinted from traffic, with its assessment.
 
-    `on_result(item, host, url, flow_id)` is called once per host a vulnerable
-    component is seen on, after the advisory lookup finishes."""
+    Saved to `path` (when given) so it survives restarts. `watch()` re-checks
+    every component daily and records an alert when one picks up a new CVE or
+    a new CISA KEV entry, since that is when something you already run becomes
+    urgent.
 
-    def __init__(self, on_result=None, *, lookups: bool = True) -> None:
-        self.items: dict[tuple, dict] = {}
+    `on_result(item, host, url, flow_id)` is called for each host a component
+    is seen on whenever its assessment changes."""
+
+    INTERVAL = 24 * 3600
+    MAX_ALERTS = 200
+
+    def __init__(self, on_result=None, *, lookups: bool = True,
+                 path: str | Path | None = None, events=None) -> None:
+        self.items: dict[str, dict] = {}
+        self.alerts: list[dict] = []
+        self.last_check = 0.0
         self.on_result = on_result
+        self.events = events
+        self.path = Path(path) if path else None
         self.lookups = lookups and os.environ.get("KERF_OFFLINE") != "1"
         self._tasks: set[asyncio.Task] = set()
+        self._load()
+
+    # ---- persistence
+
+    def _load(self) -> None:
+        if not self.path or not self.path.exists():
+            return
+        try:
+            data = json.loads(self.path.read_text())
+        except Exception:
+            return
+        for item in data.get("items") or []:
+            if item.get("status") in ("checking", "pending"):
+                item["status"] = "pending"
+            self.items[item["id"]] = item
+        self.alerts = data.get("alerts") or []
+        self.last_check = float(data.get("last_check") or 0)
+
+    def save(self) -> None:
+        if not self.path:
+            return
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({
+                "items": list(self.items.values()), "alerts": self.alerts,
+                "last_check": self.last_check}))
+            tmp.replace(self.path)
+        except Exception as exc:
+            print(f"[components] save failed: {exc!r}")
+
+    # ---- observing traffic
 
     def observe(self, flow) -> list[dict]:
         host = flow.request.host
         url = flow.request.url
         new = []
+        changed = False
         for hit in fingerprint(flow):
-            k = (hit["key"], hit["version"])
-            item = self.items.get(k)
+            distro = hit.get("distro")
+            cid = ":".join([hit["key"], hit["version"], (distro or {}).get("version", "")])
+            item = self.items.get(cid)
             if item is None:
                 meta = PRODUCTS.get(hit["key"]) or {}
-                item = self.items[k] = {
-                    "key": hit["key"], "label": meta.get("label") or hit["key"],
-                    "version": hit["version"], "evidence": hit["evidence"],
-                    "backport": hit["backport"], "hosts": {}, "status":
-                        "pending" if hit["version"] else "unversioned",
+                item = self.items[cid] = {
+                    "id": cid, "key": hit["key"], "label": meta.get("label") or hit["key"],
+                    "version": hit["version"], "distro": distro,
+                    "evidence": hit["evidence"], "backport": hit["backport"],
+                    "hosts": {}, "first_seen": time.time(), "checked_at": 0,
+                    "status": "pending" if hit["version"] else "unversioned",
                     "result": None,
                 }
                 new.append(item)
+                changed = True
                 if hit["version"]:
                     self._schedule(item)
+            elif item["status"] == "pending" and not self._busy(item):
+                self._schedule(item)  # loaded from disk mid-check
             if host not in item["hosts"]:
                 item["hosts"][host] = {"url": url, "flow_id": flow.id}
+                changed = True
                 if item["result"]:
                     self._emit(item, host)
+        if changed:
+            self.save()
         return new
 
-    def _schedule(self, item: dict) -> None:
+    def _busy(self, item: dict) -> bool:
+        return item.get("status") == "checking"
+
+    def _schedule(self, item: dict, fresh: bool = False) -> None:
         if not self.lookups:
             item["status"] = "offline"
             return
         try:
-            task = asyncio.get_running_loop().create_task(self._run(item))
+            task = asyncio.get_running_loop().create_task(self._run(item, fresh=fresh))
         except RuntimeError:
             return
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def _run(self, item: dict) -> None:
+    async def _run(self, item: dict, *, fresh: bool = False, alert: bool = False) -> None:
         item["status"] = "checking"
+        before = item.get("result") or {}
         try:
-            res = await assess(item["key"], item["version"], backport=item["backport"])
+            res = await assess(item["key"], item["version"], backport=item["backport"],
+                               distro=item.get("distro"), fresh=fresh)
         except Exception as exc:
             item["status"] = "error"
             item["error"] = str(exc)
             return
         item["result"] = res
+        item["checked_at"] = time.time()
         item["status"] = res["status"]
+        item["error"] = ""
         if res.get("errors") and res["status"] == "ok":
             item["status"] = "error"
             item["error"] = "; ".join(res["errors"])
+        if alert and before:
+            self._diff_alert(item, before, res)
         for host in list(item["hosts"]):
             self._emit(item, host)
+        self.save()
 
     def _emit(self, item: dict, host: str) -> None:
-        res = item["result"] or {}
-        if res.get("status") != "vulnerable" or not self.on_result:
+        if not self.on_result or not item.get("result"):
             return
         seen = item["hosts"][host]
         self.on_result(item, host, seen["url"], seen["flow_id"])
 
-    async def recheck(self) -> None:
-        for item in self.items.values():
-            if item["version"]:
-                item["result"] = None
-                self._schedule(item)
+    # ---- daily re-check + alerts
+
+    def _diff_alert(self, item: dict, before: dict, after: dict) -> None:
+        old_ids = {c["id"] for c in before.get("cves") or []}
+        old_kev = {c["id"] for c in before.get("cves") or [] if c.get("kev")}
+        new_cves = [c["id"] for c in after.get("cves") or [] if c["id"] not in old_ids]
+        new_kev = [c["id"] for c in after.get("cves") or []
+                   if c.get("kev") and c["id"] not in old_kev]
+        went_eol = (after.get("lifecycle") or {}).get("eol") and not \
+            (before.get("lifecycle") or {}).get("eol")
+        if not (new_cves or new_kev or went_eol):
+            return
+        name = f"{item['label']} {(item.get('distro') or {}).get('version') or item['version']}"
+        parts = []
+        if new_kev:
+            parts.append(f"now actively exploited: {', '.join(new_kev[:5])}")
+        if new_cves:
+            parts.append(f"{len(new_cves)} new CVE{'s' if len(new_cves) != 1 else ''}")
+        if went_eol:
+            parts.append("its branch just reached end of life")
+        alert = {
+            "id": f"{item['id']}@{int(time.time())}", "ts": time.time(),
+            "component": item["id"], "label": name,
+            "severity": "critical" if new_kev else after.get("severity") or "medium",
+            "message": f"{name}: " + "; ".join(parts),
+            "new_kev": new_kev, "new_cves": new_cves[:50],
+            "hosts": sorted(item["hosts"]), "fix": after.get("fix", ""),
+        }
+        self.alerts.insert(0, alert)
+        del self.alerts[self.MAX_ALERTS:]
+        if self.events is not None:
+            self.events.add("component-alert", alert["message"],
+                            hosts=alert["hosts"], severity=alert["severity"])
+        print(f"[components] ALERT {alert['message']}")
+
+    async def recheck(self, *, alert: bool = True) -> None:
+        """Re-assess everything with fresh data, recording alerts for changes."""
+        items = [i for i in self.items.values() if i["version"]]
+        if not self.lookups:
+            return
+        for item in items:
+            await self._run(item, fresh=True, alert=alert)
+        self.last_check = time.time()
+        self.save()
+
+    async def watch(self, interval: float | None = None) -> None:
+        """Background loop: re-check daily (and soon after start if overdue)."""
+        interval = interval or self.INTERVAL
+        while True:
+            due = self.last_check + interval - time.time()
+            await asyncio.sleep(max(120.0, due))
+            try:
+                await self.recheck()
+            except Exception as exc:
+                print(f"[components] daily re-check failed: {exc!r}")
+                self.last_check = time.time()
+
+    def dismiss_alerts(self) -> None:
+        self.alerts = []
+        self.save()
 
     async def wait(self) -> None:
         if self._tasks:
@@ -675,18 +877,28 @@ class ComponentInventory:
         out = []
         for item in self.items.values():
             res = item.get("result") or {}
+            distro = item.get("distro") or {}
             out.append({
-                "key": item["key"], "label": item["label"], "version": item["version"],
+                "id": item["id"], "key": item["key"], "label": item["label"],
+                "version": item["version"], "distro": distro or None,
+                "display_version": distro.get("version") or item["version"],
                 "evidence": item["evidence"], "status": item["status"],
                 "hosts": sorted(item["hosts"]), "error": item.get("error", ""),
                 "severity": res.get("severity", ""), "max_cvss": res.get("max_cvss"),
                 "cve_count": res.get("cve_count", 0), "fix": res.get("fix", ""),
                 "kev_count": res.get("kev_count", 0),
+                "likely_count": res.get("likely_count", 0),
+                "max_epss": res.get("max_epss"),
                 "lifecycle": res.get("lifecycle") or {},
                 "cves": (res.get("cves") or [])[:25], "backport": item["backport"],
+                "checked_at": item.get("checked_at") or 0,
             })
         rank = {"vulnerable": 0, "checking": 1, "pending": 1, "error": 2,
                 "ok": 3, "offline": 3, "unversioned": 4}
         out.sort(key=lambda r: (rank.get(r["status"], 9), -r["kev_count"],
-                                -(r["max_cvss"] or 0), r["label"]))
+                                -r["likely_count"], -(r["max_cvss"] or 0), r["label"]))
         return out
+
+    def summary(self) -> dict:
+        return {"items": self.public(), "alerts": self.alerts,
+                "last_check": self.last_check, "lookups": self.lookups}

@@ -125,7 +125,7 @@ def test_summarize_gives_upgrade_advice():
 # --------------------------------------------------------- integration
 
 def test_passive_scanner_turns_assessment_into_finding(monkeypatch):
-    async def fake_assess(key, version, *, backport=False):
+    async def fake_assess(key, version, *, backport=False, **_):
         return components.summarize({
             "key": key, "label": "PHP", "version": version,
             "lifecycle": components.lifecycle(CYCLES, version),
@@ -208,3 +208,180 @@ def test_summarize_flags_exploited_cves_and_raises_severity():
     assert res["fix"].startswith("Patch first: CVE-2024-4577")
     assert "ransomware" in res["fix"]
     assert "[CISA KEV: exploited, ransomware]" in components.finding_detail(res)
+
+
+
+# ------------------------------------------------------------ lockfiles
+
+def test_yarn_v1_and_berry_lockfiles():
+    v1 = ('"@babel/code-frame@^7.0.0", "@babel/code-frame@^7.10.4":\n'
+          '  version "7.12.13"\n  dependencies:\n    "@babel/highlight" "^7.12.13"\n\n'
+          'lodash@^4.17.15:\n  version "4.17.15"\n')
+    rows = sca.parse_any("yarn.lock", v1)
+    assert [(r["name"], r["version"]) for r in rows] == [
+        ("@babel/code-frame", "7.12.13"), ("lodash", "4.17.15")]
+    berry = ('__metadata:\n  version: 6\n\n"lodash@npm:^4.17.15":\n  version: 4.17.15\n\n'
+             '"app@workspace:.":\n  version: 0.0.0-use.local\n')
+    assert [(r["name"], r["version"]) for r in sca.parse_any("yarn.lock", berry)] == [
+        ("lodash", "4.17.15")]
+
+
+def test_pnpm_lockfile_versions_5_6_and_9():
+    v5 = "lockfileVersion: 5.4\npackages:\n  /@babel/core/7.0.0_supports-color@5.5.0:\n    dev: true\n"
+    v6 = "lockfileVersion: '6.0'\npackages:\n  /@babel/core@7.0.0(supports-color@5.5.0):\n    dev: false\n"
+    v9 = "lockfileVersion: '9.0'\npackages:\n  '@babel/core@7.0.0':\n    resolution: {integrity: x}\n"
+    for text in (v5, v6, v9):
+        rows = sca.parse_any("pnpm-lock.yaml", text)
+        assert [(r["name"], r["version"]) for r in rows] == [("@babel/core", "7.0.0")]
+    assert sca.parse_any("pnpm-lock.yaml", v5)[0]["dev"] is True
+
+
+# --------------------------------------------------------------- distro
+
+def test_distro_package_detection():
+    assert components.distro_package("php", "8.1.2-1ubuntu2.14") == {
+        "ecosystem": "Ubuntu", "package": "php8.1", "version": "8.1.2-1ubuntu2.14"}
+    assert components.distro_package("php", "7.4.33-1+deb11u5")["ecosystem"] == "Debian"
+    assert components.distro_package("nginx", "1.22.1-9+deb12u1")["package"] == "nginx"
+    # Upstream builds and third-party PPAs aren't in the distro trackers.
+    assert components.distro_package("php", "8.1.2") is None
+    assert components.distro_package("php", "8.2.7-1+ubuntu22.04.1+deb.sury.org+1") is None
+
+
+def test_fingerprint_keeps_full_distro_build():
+    hits = components.fingerprint(_flow([("X-Powered-By", "PHP/8.1.2-1ubuntu2.14")]))
+    assert hits[0]["version"] == "8.1.2"
+    assert hits[0]["distro"]["version"] == "8.1.2-1ubuntu2.14"
+
+
+def test_distro_build_is_not_escalated_for_upstream_eol():
+    res = components.summarize({
+        "key": "php", "label": "PHP", "version": "8.1.2",
+        "distro": {"ecosystem": "Ubuntu", "package": "php8.1", "version": "8.1.2-1ubuntu2.14"},
+        "lifecycle": components.lifecycle(CYCLES, "8.1.2"),
+        "cves": [{"id": "CVE-2024-0001", "cvss": 5.3}],
+    })
+    assert res["severity"] == "medium"
+    assert "Ubuntu's tracker" in res["title"] and "8.1.2-1ubuntu2.14" in res["title"]
+    assert "apt-get install --only-upgrade 'php8.1*'" in res["fix"]
+    assert "backports" not in res["fix"]
+
+
+# ----------------------------------------------------------------- EPSS
+
+def test_epss_tags_and_ranks_ahead_of_cvss():
+    from modules import cvss as cvsslib
+    rows = [{"id": "CVE-2022-0001", "cvss": 9.8}, {"id": "CVE-2020-11022", "cvss": 6.1}]
+    sca.tag_epss(rows, {"CVE-2020-11022": {"epss": 0.92, "percentile": 0.99}})
+    assert rows[1]["epss"] == 0.92 and "epss" not in rows[0]
+    rows.sort(key=cvsslib.sort_key)
+    assert rows[0]["id"] == "CVE-2020-11022"
+    res = components.summarize({"key": "jquery", "label": "jQuery", "version": "3.4.1",
+                                "lifecycle": {}, "cves": rows})
+    assert res["likely_count"] == 1 and "EPSS" in res["title"]
+    assert "[EPSS 92%]" in components.finding_detail(res)
+
+
+# ------------------------------------------------- inventory + alerts
+
+def _res(version, cves, kev=()):
+    return components.summarize({
+        "key": "php", "label": "PHP", "version": version, "lifecycle": {},
+        "cves": [{"id": c, "cvss": 7.5, **({"kev": {"name": "x"}} if c in kev else {})}
+                 for c in cves]})
+
+
+def test_inventory_persists_and_alerts_on_new_kev(tmp_path, monkeypatch):
+    calls = {"n": 0}
+
+    async def fake_assess(key, version, **_):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return _res(version, ["CVE-1"])
+        return _res(version, ["CVE-1", "CVE-2"], kev={"CVE-1"})
+
+    monkeypatch.setattr(components, "assess", fake_assess)
+    path = tmp_path / "components.json"
+    scanner = PassiveScanner(checks=[], inventory_path=path)
+
+    async def go():
+        await scanner.on_flow_complete(_flow([("X-Powered-By", "PHP/8.1.2")]))
+        await scanner.components.wait()
+        assert len(scanner.report()) == 1
+        await scanner.components.recheck()
+
+    asyncio.run(go())
+    inv = scanner.components
+    assert len(inv.alerts) == 1
+    alert = inv.alerts[0]
+    assert alert["new_kev"] == ["CVE-1"] and alert["new_cves"] == ["CVE-2"]
+    assert alert["severity"] == "critical" and alert["hosts"] == ["app.test"]
+    # The re-check replaced the finding instead of adding a second one.
+    rep = scanner.report()
+    assert len(rep) == 1 and rep[0]["kev"]
+    # A fresh process sees the same inventory and alerts.
+    again = components.ComponentInventory(path=path, lookups=False)
+    assert list(again.items) == list(inv.items) and len(again.alerts) == 1
+    assert again.last_check > 0
+
+
+def test_recheck_clears_finding_when_fixed(monkeypatch):
+    results = iter([_res("8.1.2", ["CVE-1"]), _res("8.1.2", [])])
+
+    async def fake_assess(key, version, **_):
+        return next(results)
+
+    monkeypatch.setattr(components, "assess", fake_assess)
+    scanner = PassiveScanner(checks=[])
+
+    async def go():
+        await scanner.on_flow_complete(_flow([("X-Powered-By", "PHP/8.1.2")]))
+        await scanner.components.wait()
+        assert len(scanner.report()) == 1
+        await scanner.components.recheck()
+
+    asyncio.run(go())
+    assert scanner.report() == []
+
+
+# --------------------------------------------------------------- report
+
+def test_report_includes_component_patch_list(monkeypatch):
+    from modules import reporting
+    from modules.history import HistoryStore
+
+    async def fake_assess(key, version, **_):
+        return _res(version, ["CVE-2024-4577"], kev={"CVE-2024-4577"})
+
+    monkeypatch.setattr(components, "assess", fake_assess)
+    scanner = PassiveScanner(checks=[])
+
+    async def go():
+        await scanner.on_flow_complete(_flow([("X-Powered-By", "PHP/8.1.2")]))
+        await scanner.components.wait()
+
+    asyncio.run(go())
+
+    class _Active:
+        scope_hosts = set()
+        def report(self):
+            return []
+
+    class _Ix:
+        scope_hosts = set()
+
+    data = reporting.build_report(history=HistoryStore(":memory:"), passive=scanner,
+                                  active=_Active(), interceptor=_Ix())
+    assert data["totals"]["components_to_patch"] == 1
+    assert data["components"][0]["label"] == "PHP"
+    html = reporting.render_html(data)
+    assert "Components to patch" in html and "EXPLOITED" in html
+
+
+def test_distro_osv_records_map_to_upstream_cve():
+    row = sca._osv_row({"ecosystem": "Ubuntu", "name": "php8.1", "version": "8.1.2-1ubuntu2.14"},
+                       {"id": "UBUNTU-CVE-2022-31628", "upstream": ["CVE-2022-31628"]})
+    assert row["cve"] == "CVE-2022-31628"
+    row = sca._osv_row({"ecosystem": "Debian", "name": "php8.2", "version": "8.2.7-1~deb12u1"},
+                       {"id": "DEBIAN-CVE-2023-3823"})
+    assert row["cve"] == "CVE-2023-3823"

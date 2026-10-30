@@ -395,7 +395,7 @@ TOOLS = [
     },
     {
         "name": "check_url",
-        "description": "Send a simple GET through DastDay to see if a host or URL is reachable.",
+        "description": "Send a simple GET through Kerf to see if a host or URL is reachable.",
         "parameters": {
             "type": "object",
             "properties": {

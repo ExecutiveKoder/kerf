@@ -15,8 +15,8 @@ import json
 from modules import payloads
 
 
-SEV_ORDER = {"high": 0, "medium": 1, "low": 2, "info": 3}
-SEV_COLOR = {"high": "#d64545", "medium": "#c98a2b",
+SEV_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+SEV_COLOR = {"critical": "#9b1c1c", "high": "#d64545", "medium": "#c98a2b",
              "low": "#3d7bc4", "info": "#6b7280"}
 
 
@@ -24,10 +24,17 @@ def build_report(*, history, passive, active, interceptor,
                  project: str = "") -> dict:
     passive_findings = passive.report()
     active_findings = active.report()
-    counts = {"high": 0, "medium": 0, "low": 0, "info": 0}
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
     for f in passive_findings + active_findings:
         counts[f.get("severity", "info")] = counts.get(f.get("severity", "info"), 0) + 1
+    # Versioned components only: the patch list. Unversioned ones can't be judged.
+    inv = getattr(passive, "components", None)
+    components = [c for c in (inv.public() if inv else []) if c.get("version")]
+    for c in components:
+        c["cves"] = c["cves"][:10]
     return {
+        "components": components,
+        "component_alerts": (inv.alerts[:20] if inv else []),
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "project": project,
         "tool": "Kerf",
@@ -37,6 +44,8 @@ def build_report(*, history, passive, active, interceptor,
             "flows": history.count(),
             "passive_findings": len(passive_findings),
             "active_findings": len(active_findings),
+            "components_to_patch": sum(
+                1 for c in components if c.get("status") == "vulnerable"),
             "by_severity": counts,
         },
         "active_findings": active_findings,
@@ -54,6 +63,46 @@ def _chip(label: str, value, color: str = "#111") -> str:
             f'<span class="l">{html.escape(str(label))}</span></div>')
 
 
+def _exploit_tags(f: dict) -> str:
+    out = ""
+    kev = f.get("kev")
+    if kev:
+        out += ('<span class="sev" style="background:#7f1d1d">EXPLOITED'
+                + (" · RANSOMWARE" if kev.get("ransomware") else "") + "</span>")
+    epss = f.get("epss") or f.get("max_epss")
+    if not kev and epss and epss >= 0.1:
+        out += f'<span class="tag">EPSS {epss:.0%}</span>'
+    return out
+
+
+def _components_table(components: list[dict]) -> str:
+    rows = []
+    for c in components:
+        status = c.get("status") or ""
+        life = c.get("lifecycle") or {}
+        if status == "vulnerable":
+            sev = c.get("severity") or "medium"
+            state = (f'<span class="sev" style="background:{SEV_COLOR.get(sev, "#6b7280")}">'
+                     f'{html.escape(sev.upper())}</span>')
+        else:
+            state = html.escape({"ok": "up to date"}.get(status, status))
+        exploited = _exploit_tags({"kev": {"ransomware": False} if c.get("kev_count") else None,
+                                   "max_epss": c.get("max_epss")})
+        cves = str(c.get("cve_count") or "")
+        if c.get("kev_count"):
+            cves += f" ({c['kev_count']} KEV)"
+        eol = " · EOL" if life.get("eol") else ""
+        rows.append(
+            f"<tr><td><b>{html.escape(c['label'])}</b></td>"
+            f"<td><code>{html.escape(c.get('display_version') or c['version'])}</code>{eol}</td>"
+            f"<td>{state} {exploited}</td><td>{html.escape(cves)}</td>"
+            f"<td>{html.escape(c.get('fix') or '')}</td>"
+            f"<td><code>{html.escape(', '.join(c.get('hosts') or []))}</code></td></tr>")
+    return ('<table class="comp"><thead><tr><th>Component</th><th>Version</th>'
+            '<th>Status</th><th>CVEs</th><th>Fix</th><th>Hosts</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+
+
 def _finding_card(f: dict, kind: str) -> str:
     sev = f.get("severity", "info")
     color = SEV_COLOR.get(sev, "#6b7280")
@@ -67,6 +116,10 @@ def _finding_card(f: dict, kind: str) -> str:
         rows.append(f"<div><b>Evidence:</b> <code>{html.escape(f['evidence'])}</code></div>")
     if f.get("confidence"):
         rows.append(f"<div><b>Confidence:</b> {html.escape(f['confidence'])}</div>")
+    if f.get("cve"):
+        rows.append(f"<div><b>CVE:</b> <code>{html.escape(f['cve'])}</code>"
+                    + (f" · CVSS {f['cvss']:.1f}" if f.get("cvss") is not None else "")
+                    + "</div>")
     remediation = ""
     if issue:
         refs = "".join(f'<li><a href="{html.escape(r)}">{html.escape(r)}</a></li>'
@@ -77,6 +130,7 @@ def _finding_card(f: dict, kind: str) -> str:
     <div class="card" style="border-left-color:{color}">
       <div class="ct">
         <span class="sev" style="background:{color}">{html.escape(sev.upper())}</span>
+        {_exploit_tags(f)}
         <span class="title">{html.escape(f.get('title', ''))}</span>
         <span class="tag">{html.escape(kind)}</span>
         <span class="check">{html.escape(f.get('check', ''))}</span>
@@ -91,11 +145,17 @@ def _finding_card(f: dict, kind: str) -> str:
 def render_html(data: dict) -> str:
     c = data["totals"]["by_severity"]
     actives = sorted(data["active_findings"], key=lambda f: SEV_ORDER.get(f["severity"], 9))
-    passives = sorted(data["passive_findings"], key=lambda f: SEV_ORDER.get(f["severity"], 9))
+    passives = data["passive_findings"]  # already exploit-first, then severity
     cards = "".join(_finding_card(f, "active") for f in actives)
     cards += "".join(_finding_card(f, "passive") for f in passives)
     if not cards:
         cards = '<p class="empty">No findings recorded.</p>'
+    comps = data.get("components") or []
+    comp_html = ""
+    if comps:
+        comp_html = ("<h2>Components to patch</h2><p class=\"meta\">Software seen by "
+                     "version, checked against NVD, OSV, distro trackers, CISA KEV and "
+                     "EPSS. Exploited first.</p>" + _components_table(comps))
     scope = ", ".join(html.escape(h) for h in data["scope"]) or "— none set —"
     project = html.escape(data["project"] or "Untitled session")
 
@@ -137,23 +197,32 @@ def render_html(data: dict) -> str:
   .rem ul {{ margin:6px 0 0; padding-left:18px; }}
   .rem a {{ color:#2b6cb0; }}
   .empty {{ color:var(--dim); }}
+  table.comp {{ width:100%; border-collapse:collapse; background:#fff; font-size:13px;
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; }}
+  table.comp th {{ text-align:left; font-size:11px; text-transform:uppercase; color:var(--dim);
+    background:#f0f2f7; padding:8px 10px; }}
+  table.comp td {{ padding:8px 10px; border-top:1px solid var(--line); vertical-align:top; }}
+  table.comp .sev {{ display:inline-block; margin:1px 0; }}
   footer {{ margin-top:50px; color:var(--dim); font-size:12px; border-top:1px solid var(--line);
     padding-top:14px; }}
 </style></head><body><div class="wrap">
   <header>
-    <h1>Dast<b>·</b>Day security report</h1>
+    <h1>Kerf security report</h1>
     <div class="meta">Project: <b>{project}</b> &nbsp;·&nbsp; Generated {html.escape(data['generated_at'])}
       &nbsp;·&nbsp; Scope: {scope}</div>
   </header>
   <div class="chips">
     {_chip("flows", data["totals"]["flows"])}
+    {_chip("critical", c.get("critical", 0), SEV_COLOR["critical"])}
     {_chip("high", c["high"], SEV_COLOR["high"])}
     {_chip("medium", c["medium"], SEV_COLOR["medium"])}
     {_chip("low", c["low"], SEV_COLOR["low"])}
     {_chip("info", c["info"], SEV_COLOR["info"])}
     {_chip("active", data["totals"]["active_findings"])}
     {_chip("passive", data["totals"]["passive_findings"])}
+    {_chip("to patch", data["totals"].get("components_to_patch", 0))}
   </div>
+  {comp_html}
   <h2>Findings</h2>
   {cards}
   <footer>Generated by Kerf. Findings are evidence-based but should be manually

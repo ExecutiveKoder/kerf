@@ -104,7 +104,7 @@ class ProjectManager:
             key = (it.get("check", ""), it.get("title", ""), it.get("url", ""))
             if key in existing:
                 continue
-            extra = {k: it[k] for k in ("cvss", "cve", "evidence") if k in it}
+            extra = {k: it[k] for k in ("cvss", "cve", "kev", "evidence") if k in it}
             self.passive.findings.append(Finding(
                 it.get("severity", "info"), it.get("title", ""),
                 it.get("detail", ""), it.get("flow_id", ""),

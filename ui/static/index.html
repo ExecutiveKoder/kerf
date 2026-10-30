@@ -328,6 +328,7 @@
   .sev.medium { background: rgba(228,178,79,.16); color: var(--sev-med); }
   .sev.low { background: rgba(106,168,232,.16); color: var(--sev-low); }
   .sev.info, .sev.unknown { background: rgba(126,138,166,.16); color: var(--sev-info); }
+  .sev.kev { background: var(--sev-critical); color: #fff; }
   .conf { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
           border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; }
   .finding .title { font-weight: 700; font-size: 13.5px; }
@@ -822,7 +823,7 @@ Accept-Language: en-US,en;q=0.9
           <button class="btn" onclick="recheckComponents()">Re-check components</button></div>
         <div class="card" id="c-card" style="display:none; margin-bottom:14px">
           <h3 style="margin:0 0 4px">Components</h3>
-          <p class="meta" style="margin:0 0 10px">Server software and libraries seen by version (PHP, Node.js, nginx, Apache, jQuery…), checked against endoflife.date, NVD and OSV. Only the product and version are sent, never your hosts.</p>
+          <p class="meta" style="margin:0 0 10px">Server software and libraries seen by version (PHP, Node.js, nginx, Apache, jQuery…), checked against endoflife.date, NVD, OSV and the CISA Known Exploited Vulnerabilities list. Only the product and version are sent, never your hosts.</p>
           <div class="pane-scroll" style="max-height:320px; border:1px solid var(--line); border-radius:10px">
             <table>
               <thead><tr><th>Component</th><th>Version</th><th>Status</th><th>CVEs</th><th>Fix</th><th>Hosts</th></tr></thead>
@@ -1731,10 +1732,16 @@ function sevbar(el, counts){
   el.innerHTML = ['critical','high','medium','low'].map(s =>
     `<div class="sevchip"><span class="n" style="color:var(--sev-${color[s]})">${counts[s]||0}</span><span class="l">${s}</span></div>`).join('');
 }
+function kevBadge(k){
+  if (!k) return '';
+  const tip = 'CISA Known Exploited Vulnerability' + (k.date_added ? ', listed ' + k.date_added : '')
+    + (k.ransomware ? '. Used in ransomware campaigns.' : '.') + (k.name ? ' ' + k.name : '');
+  return `<span class="sev kev" title="${escapeHtml(tip)}">EXPLOITED${k.ransomware ? ' · RANSOMWARE' : ''}</span>`;
+}
 function cvssBadge(f){
   const sev = f.severity || 'unknown';
   const score = (f.cvss === 0 || f.cvss) ? Number(f.cvss).toFixed(1) : '';
-  return `<span class="sev ${sev}">${escapeHtml(sev.toUpperCase())}${score ? ' ' + score : ''}</span>`;
+  return kevBadge(f.kev) + `<span class="sev ${sev}">${escapeHtml(sev.toUpperCase())}${score ? ' ' + score : ''}</span>`;
 }
 function cvssMeta(f){
   const bits = [f.cve, f.cvss_source || (f.sources||[]).join(', ')].filter(Boolean);
@@ -1745,7 +1752,8 @@ function componentStatus(c){
   if (c.status === 'vulnerable') {
     const sev = c.severity || 'high';
     const label = c.cve_count ? sev : (life.eol ? 'end of life' : 'outdated');
-    return `<span class="sev ${sev}">${escapeHtml(label.toUpperCase())}${c.max_cvss ? ' ' + Number(c.max_cvss).toFixed(1) : ''}</span>`;
+    const kev = c.kev_count ? `<span class="sev kev" title="${c.kev_count} CVE(s) on the CISA Known Exploited Vulnerabilities list">EXPLOITED</span> ` : '';
+    return kev + `<span class="sev ${sev}">${escapeHtml(label.toUpperCase())}${c.max_cvss ? ' ' + Number(c.max_cvss).toFixed(1) : ''}</span>`;
   }
   const text = {ok:'up to date', checking:'checking…', pending:'checking…', unversioned:'version hidden',
                 offline:'lookups off', error:'lookup failed'}[c.status] || c.status;
@@ -1760,7 +1768,7 @@ async function loadComponents() {
       <td>${escapeHtml(c.label)}</td>
       <td class="mono">${escapeHtml(c.version || '—')}</td>
       <td>${componentStatus(c)}</td>
-      <td class="mono" title="${escapeHtml((c.cves||[]).map(x => x.id).join(', '))}">${c.cve_count || ''}</td>
+      <td class="mono" title="${escapeHtml((c.cves||[]).map(x => x.id + (x.kev ? ' (exploited)' : '')).join(', '))}">${c.cve_count || ''}${c.kev_count ? ' · ' + c.kev_count + ' KEV' : ''}</td>
       <td title="${escapeHtml(c.fix)}">${escapeHtml(c.fix)}</td>
       <td class="mono" title="${escapeHtml(c.hosts.join(', '))}">${escapeHtml(c.hosts.join(', '))}</td>
     </tr>`).join('');
@@ -1779,7 +1787,7 @@ async function loadFindings() {
   sevbar($('#sevbar'), counts);
   $('#f-list').innerHTML = fs.length ? fs.map(f => `
     <div class="finding ${f.severity}">
-      <div class="ft">${f.cvss != null ? cvssBadge(f) : `<span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>`}
+      <div class="ft">${f.cvss != null ? cvssBadge(f) : kevBadge(f.kev) + `<span class="sev ${f.severity}">${f.severity.toUpperCase()}</span>`}
         <span class="title">${escapeHtml(f.title)}</span>
         <span class="check">${escapeHtml(f.check)}</span></div>
       <div class="detail" style="white-space:pre-line">${escapeHtml(f.detail)}</div>
@@ -2862,7 +2870,8 @@ function renderRepoFindings(repos) {
     : lastRepos;
   const findings = [];
   pool.forEach(r => (r.findings || []).forEach(f => findings.push(f)));
-  findings.sort((a, b) => (b.cvss == null ? -1 : b.cvss) - (a.cvss == null ? -1 : a.cvss));
+  findings.sort((a, b) => (!!b.kev - !!a.kev)
+    || ((b.cvss == null ? -1 : b.cvss) - (a.cvss == null ? -1 : a.cvss)));
   const counts = {critical:0, high:0, medium:0, low:0};
   findings.forEach(f => { counts[f.severity] = (counts[f.severity] || 0) + 1; });
   sevbar($('#rp-sev'), counts);

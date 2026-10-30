@@ -95,12 +95,13 @@ def ghsas_of(aliases) -> list[str]:
 
 
 def sort_key(finding: dict) -> tuple:
-    """Highest real CVSS first. Local (unscored) findings use a stand-in rank only."""
+    """CISA KEV (exploited in the wild) first, then highest real CVSS.
+    Local (unscored) findings use a stand-in rank only."""
     cvss = finding.get("cvss")
     scored = cvss is not None
     if not scored:
         cvss = {"critical": 9.5, "high": 7.5, "medium": 5.0,
                 "low": 2.0, "info": 0.0, "unknown": 0.0}.get(
                     finding.get("severity") or "", 0.0)
-    return (0 if scored else 1, -float(cvss),
+    return (0 if finding.get("kev") else 1, 0 if scored else 1, -float(cvss),
             finding.get("cve") or finding.get("id") or "")

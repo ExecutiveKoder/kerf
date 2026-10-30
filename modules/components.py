@@ -12,6 +12,7 @@ life, so the owner knows what to patch:
                     latest patch in it.
   * NVD (by CPE)  — CVEs for runtimes and servers (PHP, Node.js, nginx…).
   * OSV           — CVEs for npm / Packagist packages (jQuery, Express…).
+  * CISA KEV      — which of those CVEs are being exploited in the wild.
 
 Only the product name and version leave the machine. Never the host or URL.
 """
@@ -465,8 +466,8 @@ async def _osv(ecosystem: str, name: str, version: str) -> list[dict]:
         return hit
     found = await sca.query_osv(
         [{"ecosystem": ecosystem, "name": name, "version": version}])
-    rows = [{"id": f.get("cve") or f.get("id"), "cvss": f.get("cvss"),
-             "cvss_vector": f.get("cvss_vector") or "",
+    rows = [{"id": f.get("cve") or f.get("id"), "cves": f.get("cves") or [],
+             "cvss": f.get("cvss"), "cvss_vector": f.get("cvss_vector") or "",
              "severity": f.get("severity") or "unknown",
              "summary": (f.get("summary") or "")[:300]} for f in found]
     _cache.put(ck, rows)
@@ -503,6 +504,10 @@ async def assess(key: str, version: str, *, backport: bool = False) -> dict:
                         rows.setdefault(r["id"], r)
                 except Exception as exc:
                     out["errors"].append(f"OSV: {exc}")
+            try:
+                sca.tag_kev(list(rows.values()), await sca.kev_catalog(client))
+            except Exception as exc:
+                out["errors"].append(f"CISA KEV: {exc}")
             out["cves"] = sorted(rows.values(), key=cvsslib.sort_key)
     return summarize(out, backport=backport)
 
@@ -513,13 +518,17 @@ def summarize(res: dict, *, backport: bool = False) -> dict:
     life, cves = res.get("lifecycle") or {}, res.get("cves") or []
     scores = [c["cvss"] for c in cves if c.get("cvss") is not None]
     top = max(scores) if scores else None
+    kev = [c for c in cves if c.get("kev")]
     sev = cvsslib.bucket(top) if top is not None else ("medium" if cves else "")
-    if life.get("eol") and SEV_RANK.get(sev, 0) < SEV_RANK["high"]:
+    # Exploited in the wild, or no longer patched at all: never below high.
+    if (kev or life.get("eol")) and SEV_RANK.get(sev, 0) < SEV_RANK["high"]:
         sev = "high"
     if not sev and life.get("outdated"):
         sev = "low"
 
     bits = []
+    if kev:
+        bits.append(f"{len(kev)} actively exploited (CISA KEV)")
     if cves:
         bits.append(f"{len(cves)} known CVE{'s' if len(cves) != 1 else ''}"
                     + (f", worst CVSS {top:.1f}" if top is not None else ""))
@@ -537,6 +546,12 @@ def summarize(res: dict, *, backport: bool = False) -> dict:
         fix.append(f"Patch to {label} {life['latest']} (latest {life['cycle']}.x).")
     elif cves:
         fix.append(f"Upgrade {label} past the fixed versions listed in the advisories.")
+    if kev:
+        ids = ", ".join(c["id"] for c in kev[:3])
+        ransom = any(c["kev"].get("ransomware") for c in kev)
+        fix.insert(0, f"Patch first: {ids} {'is' if len(kev) == 1 else 'are'} "
+                   "being exploited in the wild"
+                   + (", including by ransomware groups." if ransom else "."))
     if backport and cves:
         fix.append("The banner names a Linux distro, which often backports fixes "
                    "without bumping the version. Confirm against the distro's "
@@ -546,6 +561,8 @@ def summarize(res: dict, *, backport: bool = False) -> dict:
         "severity": sev or "none",
         "max_cvss": top,
         "cve_count": len(cves),
+        "kev_count": len(kev),
+        "kev": kev[0]["kev"] if kev else None,
         "title": f"{label} {version}: " + "; ".join(bits) if bits else "",
         "fix": " ".join(fix),
         "backport": backport,
@@ -560,7 +577,10 @@ def finding_detail(res: dict, limit: int = 5) -> str:
         lines.append(res["fix"])
     for c in (res.get("cves") or [])[:limit]:
         score = f" ({c['cvss']:.1f})" if c.get("cvss") is not None else ""
-        lines.append(f"• {c['id']}{score}: {c.get('summary') or ''}"[:220])
+        tag = ""
+        if c.get("kev"):
+            tag = " [CISA KEV: exploited" + (", ransomware" if c["kev"].get("ransomware") else "") + "]"
+        lines.append(f"• {c['id']}{score}{tag}: {c.get('summary') or ''}"[:260])
     extra = len(res.get("cves") or []) - limit
     if extra > 0:
         lines.append(f"…and {extra} more.")
@@ -661,11 +681,12 @@ class ComponentInventory:
                 "hosts": sorted(item["hosts"]), "error": item.get("error", ""),
                 "severity": res.get("severity", ""), "max_cvss": res.get("max_cvss"),
                 "cve_count": res.get("cve_count", 0), "fix": res.get("fix", ""),
+                "kev_count": res.get("kev_count", 0),
                 "lifecycle": res.get("lifecycle") or {},
                 "cves": (res.get("cves") or [])[:25], "backport": item["backport"],
             })
         rank = {"vulnerable": 0, "checking": 1, "pending": 1, "error": 2,
                 "ok": 3, "offline": 3, "unversioned": 4}
-        out.sort(key=lambda r: (rank.get(r["status"], 9),
+        out.sort(key=lambda r: (rank.get(r["status"], 9), -r["kev_count"],
                                 -(r["max_cvss"] or 0), r["label"]))
         return out

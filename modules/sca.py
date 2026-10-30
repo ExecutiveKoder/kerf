@@ -5,6 +5,7 @@ Lockfiles are looked up in several public advisory sources:
   * OSV (package → known vuln)
   * GitHub Advisory (GHSA → CVE / CVSS)
   * NVD (CVE → official CVSS)
+  * CISA KEV (CVE → exploited in the wild)
 
 Results are sorted by CVSS, high to low.
 """
@@ -15,6 +16,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from pathlib import Path
 
 import httpx
@@ -26,6 +28,8 @@ OSV_VULN = "https://api.osv.dev/v1/vulns"
 PYPI = "https://pypi.org/pypi"
 NVD = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 GH_ADV = "https://api.github.com/advisories"
+KEV = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+KEV_TTL = 12 * 3600
 
 ECO = {
     "pypi": "PyPI",
@@ -370,6 +374,73 @@ async def _enrich(findings: list[dict], *, github_token: str = "") -> list[dict]
     return findings
 
 
+def _kev_path() -> Path:
+    return _cache_path().with_name("cisa-kev.json")
+
+
+_kev_mem: dict = {}
+
+
+async def kev_catalog(client: httpx.AsyncClient | None = None) -> dict[str, dict]:
+    """CISA Known Exploited Vulnerabilities, keyed by CVE. Cached for 12h;
+    a stale copy is used if CISA can't be reached."""
+    if _kev_mem and time.time() - _kev_mem.get("t", 0) < KEV_TTL:
+        return _kev_mem["v"]
+    stale = {}
+    try:
+        disk = json.loads(_kev_path().read_text())
+        stale = disk.get("v") or {}
+        if time.time() - disk.get("t", 0) < KEV_TTL:
+            _kev_mem.update(disk)
+            return stale
+    except Exception:
+        pass
+    own = client is None
+    client = client or httpx.AsyncClient(timeout=30)
+    try:
+        r = await client.get(KEV, headers={"User-Agent": "Kerf"})
+        r.raise_for_status()
+        rows = r.json().get("vulnerabilities") or []
+    except Exception:
+        return stale
+    finally:
+        if own:
+            await client.aclose()
+    cat = {}
+    for v in rows:
+        cve = str(v.get("cveID") or "").upper()
+        if cve:
+            cat[cve] = {
+                "name": v.get("vulnerabilityName") or "",
+                "date_added": v.get("dateAdded") or "",
+                "due": v.get("dueDate") or "",
+                "ransomware": (v.get("knownRansomwareCampaignUse") or "").lower() == "known",
+                "action": v.get("requiredAction") or "",
+            }
+    data = {"t": time.time(), "v": cat}
+    _kev_mem.update(data)
+    try:
+        _kev_path().parent.mkdir(parents=True, exist_ok=True)
+        _kev_path().write_text(json.dumps(data))
+    except Exception:
+        pass
+    return cat
+
+
+def tag_kev(findings: list[dict], catalog: dict[str, dict]) -> list[dict]:
+    """Mark findings whose CVE is on the CISA KEV list (exploited in the wild)."""
+    for f in findings:
+        ids = [f.get("cve"), f.get("id"), *(f.get("cves") or [])]
+        hit = next((catalog[c] for c in cvsslib.cves_of(ids) if c in catalog), None)
+        if hit:
+            f["kev"] = hit
+            if "CISA KEV" not in (f.get("sources") or []):
+                f.setdefault("sources", []).append("CISA KEV")
+        else:
+            f.pop("kev", None)
+    return findings
+
+
 def _cluster_keys(f: dict) -> set[tuple]:
     eco = f.get("ecosystem") or ""
     name = (f.get("name") or "").lower()
@@ -532,7 +603,10 @@ async def query_osv(packages: list[dict], *, github_token: str = "") -> list[dic
         await asyncio.gather(*(load(vid) for vid in ids))
     findings = [_osv_row(pkg, hydrated.get(vid) or {"id": vid})
                 for pkg, vid in pairs]
-    return dedupe_osv(await _enrich(findings, github_token=github_token))
+    out = dedupe_osv(await _enrich(findings, github_token=github_token))
+    tag_kev(out, await kev_catalog())
+    out.sort(key=cvsslib.sort_key)
+    return out
 
 
 def cyclonedx(packages: list[dict], findings: list[dict]) -> dict:

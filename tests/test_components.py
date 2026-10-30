@@ -176,3 +176,35 @@ def test_composer_lock_parses_packagist():
     rows = sca.parse_any("composer.lock", text)
     assert rows[0] == {"ecosystem": "Packagist", "name": "laravel/framework", "version": "8.0.0"}
     assert rows[1]["dev"] is True
+
+
+# ------------------------------------------------------------- CISA KEV
+
+KEV_CAT = {"CVE-2024-4577": {"name": "PHP-CGI OS Command Injection", "date_added": "2024-06-12",
+                             "due": "2024-07-03", "ransomware": True, "action": ""}}
+
+
+def test_tag_kev_matches_any_cve_alias():
+    rows = [{"id": "GHSA-xxxx-yyyy-zzzz", "cves": ["CVE-2024-4577"]},
+            {"id": "CVE-2020-0001"}]
+    sca.tag_kev(rows, KEV_CAT)
+    assert rows[0]["kev"]["ransomware"] is True and "CISA KEV" in rows[0]["sources"]
+    assert "kev" not in rows[1]
+
+
+def test_kev_sorts_ahead_of_higher_cvss():
+    from modules import cvss as cvsslib
+    rows = [{"id": "CVE-A", "cvss": 9.8}, {"id": "CVE-B", "cvss": 6.1, "kev": {"name": "x"}}]
+    rows.sort(key=cvsslib.sort_key)
+    assert rows[0]["id"] == "CVE-B"
+
+
+def test_summarize_flags_exploited_cves_and_raises_severity():
+    cves = [{"id": "CVE-2024-4577", "cvss": 5.0, "kev": KEV_CAT["CVE-2024-4577"]}]
+    res = components.summarize({"key": "php", "label": "PHP", "version": "8.4.1",
+                                "lifecycle": {}, "cves": cves})
+    assert res["severity"] == "high"  # medium CVSS, but exploited in the wild
+    assert res["kev_count"] == 1 and "actively exploited (CISA KEV)" in res["title"]
+    assert res["fix"].startswith("Patch first: CVE-2024-4577")
+    assert "ransomware" in res["fix"]
+    assert "[CISA KEV: exploited, ransomware]" in components.finding_detail(res)

@@ -178,7 +178,7 @@ class PassiveScanner(BaseAddon):
             res["severity"], res["title"], finding_detail(res), flow_id, url,
             "vulnerable-component",
             extra={"cvss": res.get("max_cvss"), "cve": top.get("id", ""),
-                   "evidence": item["evidence"]},
+                   "kev": res.get("kev"), "evidence": item["evidence"]},
         ), host)
 
     async def on_flow_complete(self, flow: Flow) -> None:
@@ -200,6 +200,8 @@ class PassiveScanner(BaseAddon):
                 "severity": f.severity, "title": f.title, "detail": f.detail,
                 "url": f.url, "check": f.check, "flow_id": f.flow_id, **f.extra,
             }
+            # Exploited in the wild (CISA KEV) first, then severity, then CVSS.
             for f in sorted(self.findings, key=lambda f: (
+                0 if f.extra.get("kev") else 1,
                 order.get(f.severity, 9), -(f.extra.get("cvss") or 0)))
         ]

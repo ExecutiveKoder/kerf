@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kerf — a local proxy for your own web apps</title>
-  <meta name="description" content="Kerf is a local web security proxy. Personal use is free. Commercial use is a separate license.">
+  <title>Kerf — authorized web security</title>
+  <meta name="description" content="Kerf is a local web security proxy for personal, authorized testing. Smashrock Media Inc. Commercial licenses available.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <style>
     :root {
@@ -13,68 +13,86 @@
       --muted: #5e584f;
       --faint: #8a8378;
       --line: #ddd6c8;
+      --card: #fffdf8;
       --amber: #c47d22;
-      --code: #fffdf8;
+      --sans: ui-sans-serif, system-ui, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --serif: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
     }
     * { box-sizing: border-box; }
-    html { background: var(--paper); }
+    html { background: var(--paper); scroll-behavior: smooth; }
     body {
       margin: 0;
       color: var(--ink);
-      font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
-      line-height: 1.5;
+      font-family: var(--serif);
+      line-height: 1.55;
       background: var(--paper);
     }
     a { color: inherit; }
-    .wrap { width: min(640px, calc(100% - 48px)); margin: 0 auto; }
+    .wrap { width: min(880px, calc(100% - 48px)); margin: 0 auto; }
     header {
       display: flex; align-items: center; gap: 12px;
-      padding: 28px 0 0;
+      padding: 28px 0 8px;
     }
     header img { width: 28px; height: 28px; }
-    header .brand { font-weight: 600; font-size: 17px; letter-spacing: 0.01em; }
-    header nav { margin-left: auto; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; }
+    header .brand { font-weight: 600; font-size: 17px; }
+    header nav {
+      margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px 18px;
+      font-family: var(--sans); font-size: 13px;
+    }
     header nav a { color: var(--muted); text-decoration: none; }
     header nav a:hover { color: var(--ink); }
-    main { padding: 72px 0 48px; }
+    .hero { padding: 56px 0 8px; }
     h1 {
-      font-size: clamp(40px, 7vw, 56px);
+      font-size: clamp(40px, 6vw, 58px);
       font-weight: 500;
       letter-spacing: -0.03em;
       line-height: 1.05;
-      margin: 0 0 18px;
+      margin: 0 0 16px;
     }
-    .lead {
-      font-size: 20px;
-      color: var(--muted);
-      max-width: 36em;
-      margin: 0 0 36px;
+    h1 em { font-style: italic; font-weight: 500; }
+    .lead { font-size: 20px; color: var(--muted); max-width: 38em; margin: 0 0 28px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .btn {
+      display: inline-block; text-decoration: none;
+      font-family: var(--sans); font-weight: 600; font-size: 14px;
+      border-radius: 999px; padding: 10px 16px;
+      border: 1px solid var(--line); background: transparent; color: var(--ink);
     }
+    .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    section { padding: 48px 0 8px; }
+    h2 { font-size: 28px; font-weight: 500; letter-spacing: -0.02em; margin: 0 0 8px; }
+    h3 { font-family: var(--sans); font-size: 15px; margin: 0 0 6px; }
+    .sub { color: var(--muted); margin: 0 0 22px; }
+    .steps { display: grid; gap: 0; }
+    .step {
+      display: grid; grid-template-columns: 28px 1fr; gap: 16px;
+      padding: 18px 0; border-top: 1px solid var(--line);
+    }
+    .n {
+      font-family: var(--sans); font-size: 13px; color: var(--amber); padding-top: 2px;
+    }
+    .step p { margin: 0; color: var(--muted); }
     pre {
-      margin: 0;
-      padding: 18px 20px;
-      background: var(--code);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 13.5px;
-      line-height: 1.7;
-      overflow: auto;
+      margin: 12px 0 0; padding: 14px 16px; overflow: auto;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; font-family: var(--mono); font-size: 13px; line-height: 1.7;
     }
-    .next { margin: 22px 0 0; color: var(--muted); font-size: 16px; }
-    .next code {
-      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 0.92em;
-    }
+    code { font-family: var(--mono); font-size: 0.92em; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .card ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+    .card li { margin: 6px 0; }
+    .notice { margin-top: 22px; color: var(--muted); font-size: 15px; }
     footer {
-      border-top: 1px solid var(--line);
+      margin-top: 48px; border-top: 1px solid var(--line);
       padding: 22px 0 48px;
-      color: var(--faint);
-      font-family: ui-sans-serif, system-ui, sans-serif;
-      font-size: 13px;
+      color: var(--faint); font-family: var(--sans); font-size: 13px;
     }
-    footer p { margin: 0 0 8px; }
+    footer .row { display: flex; flex-wrap: wrap; gap: 10px 18px; justify-content: space-between; }
     footer a { color: var(--muted); }
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -82,22 +100,112 @@
     <header>
       <img src="logo.svg" alt="">
       <div class="brand">Kerf</div>
-      <nav><a href="https://github.com/ExecutiveKoder/kerf">GitHub</a></nav>
+      <nav>
+        <a href="#personal">Personal use</a>
+        <a href="#commercial">Commercial</a>
+        <a href="https://github.com/ExecutiveKoder/kerf">GitHub</a>
+        <a href="https://github.com/ExecutiveKoder/kerf/blob/master/LICENSE">License</a>
+      </nav>
     </header>
 
-    <main>
-      <h1>A local proxy for your own web apps.</h1>
-      <p class="lead">History, replay, and a browser already on the proxy. It stays on your machine. Personal use.</p>
-      <pre>git clone https://github.com/ExecutiveKoder/kerf.git
+    <div class="hero">
+      <h1>A local proxy for <em>authorized</em> web testing.</h1>
+      <p class="lead">Intercept, replay, and scan systems you own or have written permission to test. Source is available to run and inspect. The license is not open source.</p>
+      <div class="actions">
+        <a class="btn primary" href="#personal">Use it personally</a>
+        <a class="btn" href="#commercial">Get a commercial license</a>
+        <a class="btn" href="https://github.com/ExecutiveKoder/kerf">View the repository</a>
+      </div>
+    </div>
+
+    <section id="personal">
+      <h2>Personal use</h2>
+      <p class="sub">Free after you accept the Kerf Personal Use License. No commercial use.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="n">1</div>
+          <div>
+            <h3>Install with Docker</h3>
+            <p>First run builds the image (Python + Chromium). Later runs just start.</p>
+            <pre>git clone https://github.com/ExecutiveKoder/kerf.git
 cd kerf
 docker compose up -d</pre>
-      <p class="next">Open <a href="http://127.0.0.1:8000">127.0.0.1:8000</a> and accept the personal-use license. Data lives in <code>./data</code>, or in <code>~/.kerf</code> if you start it with Python instead of Docker.</p>
-    </main>
+          </div>
+        </div>
+        <div class="step">
+          <div class="n">2</div>
+          <div>
+            <h3>Accept the license</h3>
+            <p>Open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>. Read the terms and check the box. You are accepting personal, non-commercial use only, and agreeing not to redistribute Kerf.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="n">3</div>
+          <div>
+            <h3>Trust the CA on a machine you control</h3>
+            <p>In Setup, download the Kerf CA and install it in that browser or OS trust store. This is how HTTPS interception works. Remove the CA when you are done.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="n">4</div>
+          <div>
+            <h3>Point a browser at the proxy</h3>
+            <p>HTTP/HTTPS proxy: <code>127.0.0.1:8080</code>. Browse in-scope hosts. Traffic lands in History. Repo scans are under Scan → Repos.</p>
+          </div>
+        </div>
+      </div>
+      <p class="sub" style="margin-top:18px">Without Docker: <code>pip install -r requirements.txt &amp;&amp; python main.py</code>. History, the CA, and the license acceptance live in <code>./data</code> (Docker) or <code>~/.kerf</code>.</p>
+      <p class="notice">Run Kerf only against systems you own or have explicit written permission to test. Intercepting other people’s traffic is illegal in most jurisdictions.</p>
+    </section>
+
+    <section>
+      <h2>What ships</h2>
+      <p class="sub">One process on your machine. SQLite history. No hosted cluster.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Proxy toolkit</h3>
+          <ul>
+            <li>HTTP/1.1, HTTP/2, WebSockets, local CA</li>
+            <li>History, intercept, Replay, rewrite, cookies</li>
+            <li>Encode, Compare, Tokens, reports</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Authorized scanning</h3>
+          <ul>
+            <li>Passive findings on captured traffic</li>
+            <li>GitHub repo SCA / secrets / dangerous APIs</li>
+            <li>Scan engine without a public exploit catalog</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="commercial">
+      <h2>Commercial use</h2>
+      <p class="sub">Paid work, an employer, a client, or any commercial advantage is not licensed by the personal grant.</p>
+      <div class="card">
+        <h3>Buy a commercial license</h3>
+        <p class="sub">Smashrock Media Inc licenses Kerf for teams and client engagements. Email what you need: seats, duration, and whether you want it on employer hardware.</p>
+        <ul>
+          <li>Use at work or on a paid engagement</li>
+          <li>Install on company machines</li>
+          <li>No right to redistribute or resell Kerf</li>
+        </ul>
+        <div class="actions" style="margin-top:18px">
+          <a class="btn primary" href="mailto:accounts@kerf.software?subject=Kerf%20commercial%20license">Email accounts@kerf.software</a>
+        </div>
+      </div>
+    </section>
 
     <footer>
-      <p>Only test systems you own or have written permission to test.</p>
-      <p>Commercial use is a separate license. <a href="mailto:accounts@kerf.software">accounts@kerf.software</a></p>
-      <p>Copyright © 2026 Smashrock Media Inc. · <a href="https://github.com/ExecutiveKoder/kerf/blob/master/LICENSE">Personal Use License</a></p>
+      <div class="row">
+        <div>Copyright © 2026 Smashrock Media Inc. All rights reserved.</div>
+        <div>
+          <a href="https://github.com/ExecutiveKoder/kerf/blob/master/LICENSE">Kerf Personal Use License</a>
+          · <a href="mailto:accounts@kerf.software">accounts@kerf.software</a>
+        </div>
+      </div>
     </footer>
   </div>
 </body>

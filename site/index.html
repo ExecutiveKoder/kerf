@@ -6,91 +6,114 @@
   <title>Kerf — authorized web security</title>
   <meta name="description" content="Kerf is a local web security proxy for personal, authorized testing. Smashrock Media Inc. Commercial licenses available.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --paper: #f4f1ea;
-      --ink: #1c1915;
-      --muted: #5e584f;
-      --faint: #8a8378;
-      --line: #ddd6c8;
-      --card: #fffdf8;
-      --amber: #c47d22;
-      --sans: ui-sans-serif, system-ui, sans-serif;
-      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      --serif: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+      --ground: #0e131f;
+      --ground-2: #0b0f18;
+      --surface: #161d2d;
+      --surface-2: #1d2639;
+      --line: #2b3755;
+      --ink: #eaeff8;
+      --ink-dim: #9aa7c2;
+      --ink-faint: #637091;
+      --accent: #f0a850;
+      --accent-2: #ffbe6b;
+      --accent-ink: #1a1205;
+      --ok: #6fcf97;
+      --bad: #ef6f6c;
+      --ui: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
     }
     * { box-sizing: border-box; }
-    html { background: var(--paper); scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       color: var(--ink);
-      font-family: var(--serif);
+      font-family: var(--ui);
       line-height: 1.55;
-      background: var(--paper);
+      background:
+        radial-gradient(1100px 480px at 85% -8%, rgba(240,168,80,.09), transparent 58%),
+        radial-gradient(800px 420px at -8% 110%, rgba(106,168,232,.06), transparent 55%),
+        var(--ground);
     }
-    a { color: inherit; }
-    .wrap { width: min(880px, calc(100% - 48px)); margin: 0 auto; }
+    a { color: var(--accent); }
+    .wrap { width: min(920px, calc(100% - 40px)); margin: 0 auto; }
     header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 28px 0 8px;
+      display: flex; align-items: center; gap: 14px;
+      padding: 22px 0 18px;
     }
-    header img { width: 28px; height: 28px; }
-    header .brand { font-weight: 600; font-size: 17px; }
-    header nav {
-      margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px 18px;
-      font-family: var(--sans); font-size: 13px;
-    }
-    header nav a { color: var(--muted); text-decoration: none; }
+    header img { width: 36px; height: 36px; }
+    header .brand { font-weight: 700; font-size: 18px; letter-spacing: .02em; }
+    header nav { margin-left: auto; display: flex; gap: 18px; font-size: 13.5px; font-weight: 600; }
+    header nav a { color: var(--ink-dim); text-decoration: none; }
     header nav a:hover { color: var(--ink); }
-    .hero { padding: 56px 0 8px; }
-    h1 {
-      font-size: clamp(40px, 6vw, 58px);
-      font-weight: 500;
-      letter-spacing: -0.03em;
-      line-height: 1.05;
-      margin: 0 0 16px;
+    .hero { padding: 48px 0 28px; }
+    .pill {
+      display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--accent);
+      border: 1px solid rgba(240,168,80,.35); border-radius: 999px; padding: 3px 10px;
     }
-    h1 em { font-style: italic; font-weight: 500; }
-    .lead { font-size: 20px; color: var(--muted); max-width: 38em; margin: 0 0 28px; }
+    h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.15; margin: 14px 0 12px; letter-spacing: -0.02em; }
+    h1 em { font-style: normal; color: var(--accent); }
+    .lead { font-size: 18px; color: var(--ink-dim); max-width: 640px; margin: 0 0 22px; }
     .actions { display: flex; flex-wrap: wrap; gap: 10px; }
     .btn {
-      display: inline-block; text-decoration: none;
-      font-family: var(--sans); font-weight: 600; font-size: 14px;
-      border-radius: 999px; padding: 10px 16px;
-      border: 1px solid var(--line); background: transparent; color: var(--ink);
+      display: inline-block; text-decoration: none; font-weight: 700; font-size: 14px;
+      border-radius: 9px; padding: 10px 16px; border: 1px solid var(--line);
+      background: var(--surface-2); color: var(--ink);
     }
-    .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-    section { padding: 48px 0 8px; }
-    h2 { font-size: 28px; font-weight: 500; letter-spacing: -0.02em; margin: 0 0 8px; }
-    h3 { font-family: var(--sans); font-size: 15px; margin: 0 0 6px; }
-    .sub { color: var(--muted); margin: 0 0 22px; }
-    .steps { display: grid; gap: 0; }
+    .btn.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: var(--accent-ink); border-color: var(--accent);
+    }
+    section { padding: 36px 0; border-top: 1px solid var(--line); }
+    h2 { font-size: 22px; margin: 0 0 8px; }
+    h3 { font-size: 15px; margin: 0 0 6px; }
+    .sub { color: var(--ink-dim); margin: 0 0 22px; }
+    .steps { display: grid; gap: 12px; }
     .step {
-      display: grid; grid-template-columns: 28px 1fr; gap: 16px;
-      padding: 18px 0; border-top: 1px solid var(--line);
+      display: grid; grid-template-columns: 36px 1fr; gap: 14px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 12px; padding: 14px 16px;
     }
     .n {
-      font-family: var(--sans); font-size: 13px; color: var(--amber); padding-top: 2px;
+      font-family: var(--mono); font-weight: 700; color: var(--accent);
+      width: 36px; height: 36px; display: grid; place-items: center;
+      border: 1px solid rgba(240,168,80,.35); border-radius: 8px; background: var(--ground-2);
     }
-    .step p { margin: 0; color: var(--muted); }
+    .step p { margin: 0; color: var(--ink-dim); font-size: 14px; }
     pre {
-      margin: 12px 0 0; padding: 14px 16px; overflow: auto;
-      background: var(--card); border: 1px solid var(--line);
-      border-radius: 10px; font-family: var(--mono); font-size: 13px; line-height: 1.7;
+      margin: 10px 0 0; padding: 12px 14px; overflow: auto;
+      background: var(--ground-2); border: 1px solid var(--line);
+      border-radius: 8px; font-family: var(--mono); font-size: 12.5px; color: var(--ink);
     }
-    code { font-family: var(--mono); font-size: 0.92em; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-    .card ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
-    .card li { margin: 6px 0; }
-    .notice { margin-top: 22px; color: var(--muted); font-size: 15px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 12px; padding: 18px 18px 16px;
+    }
+    .card ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-dim); }
+    .card li { margin: 5px 0; }
+    .notice {
+      border: 1px solid rgba(239,111,108,.35); background: rgba(239,111,108,.06);
+      border-radius: 10px; padding: 12px 14px; color: var(--ink-dim); font-size: 14px;
+    }
+    .commercial {
+      border-color: rgba(240,168,80,.4);
+      background:
+        linear-gradient(180deg, rgba(240,168,80,.07), transparent 42%),
+        var(--surface);
+    }
     footer {
-      margin-top: 48px; border-top: 1px solid var(--line);
-      padding: 22px 0 48px;
-      color: var(--faint); font-family: var(--sans); font-size: 13px;
+      border-top: 1px solid var(--line); padding: 22px 0 36px;
+      color: var(--ink-faint); font-size: 12.5px;
     }
     footer .row { display: flex; flex-wrap: wrap; gap: 10px 18px; justify-content: space-between; }
-    footer a { color: var(--muted); }
     @media (max-width: 720px) {
+      header nav { display: none; }
       .grid { grid-template-columns: 1fr; }
     }
   </style>
@@ -109,6 +132,7 @@
     </header>
 
     <div class="hero">
+      <span class="pill">Personal use</span>
       <h1>A local proxy for <em>authorized</em> web testing.</h1>
       <p class="lead">Intercept, replay, and scan systems you own or have written permission to test. Source is available to run and inspect. The license is not open source.</p>
       <div class="actions">
@@ -155,7 +179,7 @@ docker compose up -d</pre>
         </div>
       </div>
       <p class="sub" style="margin-top:18px">Without Docker: <code>pip install -r requirements.txt &amp;&amp; python main.py</code>. History, the CA, and the license acceptance live in <code>./data</code> (Docker) or <code>~/.kerf</code>.</p>
-      <p class="notice">Run Kerf only against systems you own or have explicit written permission to test. Intercepting other people’s traffic is illegal in most jurisdictions.</p>
+      <div class="notice">Run Kerf only against systems you own or have explicit written permission to test. Intercepting other people’s traffic is illegal in most jurisdictions.</div>
     </section>
 
     <section>
@@ -184,15 +208,15 @@ docker compose up -d</pre>
     <section id="commercial">
       <h2>Commercial use</h2>
       <p class="sub">Paid work, an employer, a client, or any commercial advantage is not licensed by the personal grant.</p>
-      <div class="card">
+      <div class="card commercial">
         <h3>Buy a commercial license</h3>
-        <p class="sub">Smashrock Media Inc licenses Kerf for teams and client engagements. Email what you need: seats, duration, and whether you want it on employer hardware.</p>
+        <p class="sub" style="margin-bottom:12px">Smashrock Media Inc licenses Kerf for teams and client engagements. Email what you need: seats, duration, and whether you want it on employer hardware.</p>
         <ul>
           <li>Use at work or on a paid engagement</li>
           <li>Install on company machines</li>
           <li>No right to redistribute or resell Kerf</li>
         </ul>
-        <div class="actions" style="margin-top:18px">
+        <div class="actions" style="margin-top:16px">
           <a class="btn primary" href="mailto:accounts@kerf.software?subject=Kerf%20commercial%20license">Email accounts@kerf.software</a>
         </div>
       </div>

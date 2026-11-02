@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import ssl
-from pathlib import Path
 
-CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+from modules.home import kerf_home
+
+CONFIG_DIR = kerf_home()
 SETTINGS_PATH = CONFIG_DIR / "upstream.json"
 
 PRESETS = {

@@ -14,7 +14,9 @@ import shutil
 import sys
 from pathlib import Path
 
-CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+from modules.home import kerf_home
+
+CONFIG_DIR = kerf_home()
 PROFILE_DIR = CONFIG_DIR / "chromium-profile"
 
 

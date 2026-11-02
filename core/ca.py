@@ -1,7 +1,7 @@
 """
 Certificate Authority for TLS interception.
 
-Generates a root CA on first run (stored under ~/.dastday/), then mints
+Generates a root CA on first run (stored under ~/.kerf/), then mints
 per-host leaf certificates on demand, signed by that CA. The user installs the
 root CA into their browser/OS trust store so intercepted HTTPS validates.
 
@@ -16,7 +16,6 @@ import datetime
 import ipaddress
 import os
 import threading
-from pathlib import Path
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -24,8 +23,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from modules.brand import CA_CN, NAME
+from modules.home import kerf_home
 
-CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+CONFIG_DIR = kerf_home()
 CA_CERT_PATH = CONFIG_DIR / "ca-cert.pem"
 CA_KEY_PATH = CONFIG_DIR / "ca-key.pem"
 

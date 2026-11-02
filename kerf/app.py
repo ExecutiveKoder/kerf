@@ -5,10 +5,12 @@ together.
 
 from __future__ import annotations
 
+from modules.home import adopt_db, adopt_legacy, kerf_home
+
+adopt_legacy()
+
 import asyncio
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import uvicorn
 
@@ -62,14 +64,14 @@ class AppContext:
 
 
 def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
-                  db_path="dastday.db", ext_dir="extensions",
+                  db_path="kerf.db", ext_dir="extensions",
                   projects_dir="projects") -> AppContext:
+    db_path = str(adopt_db(db_path))
     interceptor = Interceptor()
     proxy = ProxyServer(proxy_host, proxy_port, interceptor)
 
     history = HistoryStore(db_path)
-    home = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
-    passive = PassiveScanner(inventory_path=home / "components.json")
+    passive = PassiveScanner(inventory_path=kerf_home() / "components.json")
     repeater = Repeater(proxy)
 
     # Active engine wired to the proxy's upstream path. It ships with the bundled
@@ -134,7 +136,7 @@ def build_context(*, proxy_host="127.0.0.1", proxy_port=8080,
 
 
 async def run(proxy_host="127.0.0.1", proxy_port=8080,
-              ui_host="127.0.0.1", ui_port=8000, db_path="dastday.db"):
+              ui_host="127.0.0.1", ui_port=8000, db_path="kerf.db"):
     ctx = build_context(proxy_host=proxy_host, proxy_port=proxy_port, db_path=db_path)
     app = create_app(ctx)
 

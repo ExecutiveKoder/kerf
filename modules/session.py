@@ -9,16 +9,15 @@ macros only fire against in-scope hosts.
 from __future__ import annotations
 
 import json
-import os
 import time
 from http.cookies import SimpleCookie
-from pathlib import Path
 from urllib.parse import urlsplit
 
 from core.interceptor import BaseAddon
 from core.http_message import Flow, HttpRequest
+from modules.home import kerf_home
 
-CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+CONFIG_DIR = kerf_home()
 SETTINGS_PATH = CONFIG_DIR / "session.json"
 
 

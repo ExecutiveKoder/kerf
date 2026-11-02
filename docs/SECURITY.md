@@ -22,7 +22,7 @@ your CA**, i.e. browsers/devices you have configured on a machine you control.
 The CA cannot be used to intercept anyone else's traffic, and it does not weaken
 real certificate validation for anyone who hasn't installed it.
 
-Keep the CA private key (`~/.dastday/ca-key.pem`) safe. Anyone with it can
+Keep the CA private key (`~/.kerf/ca-key.pem`) safe. Anyone with it can
 mint certificates your trust store will accept. The file is created mode 0600 on
 POSIX systems. Remove the CA from your trust store when you're done testing.
 

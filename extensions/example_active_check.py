@@ -15,11 +15,11 @@ from urllib.parse import urlsplit
 from modules.active_scan import ActiveCheck, ActiveFinding, apply_payload
 
 REDIRECT_PAYLOADS = [
-    "https://dastday.example.evil/",
-    "//dastday.example.evil/",
-    "https:dastday.example.evil",
+    "https://kerf.example.evil/",
+    "//kerf.example.evil/",
+    "https:kerf.example.evil",
 ]
-EVIL_HOST = "dastday.example.evil"
+EVIL_HOST = "kerf.example.evil"
 
 
 class OpenRedirectCheck(ActiveCheck):

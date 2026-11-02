@@ -9,7 +9,7 @@ services:
       - "${KERF_PROXY_PORT:-8080}:8080"
       - "${KERF_BROWSER_PORT:-6080}:6080"
     environment:
-      DASTDAY_HOME: /data
+      KERF_HOME: /data
       KERF_DOCKER: "1"
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
       DISPLAY: ":99"

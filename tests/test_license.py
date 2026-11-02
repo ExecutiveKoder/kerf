@@ -13,7 +13,7 @@ from modules.brand import ACCOUNTS_EMAIL, ATTESTATION, ATTEST_VERSION, COPYRIGHT
 
 def _home():
     home = tempfile.mkdtemp(prefix="kerf-lic-")
-    os.environ["DASTDAY_HOME"] = home
+    os.environ["KERF_HOME"] = home
     return home
 
 

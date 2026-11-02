@@ -21,7 +21,6 @@ dependencies = [
 
 [project.scripts]
 kerf = "main:main"
-dastday = "main:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

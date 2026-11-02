@@ -312,7 +312,8 @@ def runtime_hints(path: str, text: str) -> list[dict]:
 
 
 def _cache_file() -> Path:
-    home = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    from modules.home import kerf_home
+    home = kerf_home()
     return home / "component-cache.json"
 
 

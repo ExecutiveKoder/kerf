@@ -2,9 +2,9 @@
 set -e
 export DISPLAY="${DISPLAY:-:99}"
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/ms-playwright}"
-export DASTDAY_HOME="${DASTDAY_HOME:-/data}"
+export KERF_HOME="${KERF_HOME:-/data}"
 export KERF_DOCKER=1
-mkdir -p "$DASTDAY_HOME"
+mkdir -p "$KERF_HOME"
 
 Xvfb "$DISPLAY" -screen 0 1400x900x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 &
 sleep 1
@@ -32,4 +32,4 @@ fi
 exec python main.py \
   --proxy-host 0.0.0.0 \
   --ui-host 0.0.0.0 \
-  --db /data/dastday.db
+  --db /data/kerf.db

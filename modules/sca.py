@@ -309,7 +309,8 @@ def _osv_row(pkg: dict, vuln: dict) -> dict:
 
 
 def _cache_path() -> Path:
-    home = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    from modules.home import kerf_home
+    home = kerf_home()
     return home / "advisory-cache.json"
 
 

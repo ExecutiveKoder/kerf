@@ -277,7 +277,7 @@ def _request_from_history(ctx, flow_id: str):
 
 
 def create_app(ctx) -> FastAPI:
-    """ctx carries the shared module instances (see dastday.app.AppContext)."""
+    """ctx carries the shared module instances (see kerf.app.AppContext)."""
     app = FastAPI(title=NAME)
 
     @app.middleware("http")

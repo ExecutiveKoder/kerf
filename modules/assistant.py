@@ -11,7 +11,7 @@ Providers (configured under Setup):
   * Frontier — OpenAI, Anthropic, Google Gemini
   * Gateway — OpenRouter (or a custom OpenAI-compatible URL)
 
-Keys live in ~/.dastday/assistant.json on the operator's machine and are never
+Keys live in ~/.kerf/assistant.json on the operator's machine and are never
 returned in full to the UI.
 """
 
@@ -20,15 +20,15 @@ from __future__ import annotations
 import json
 import os
 import re
-from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlsplit
 
 from core.http_message import Flow
 from modules.active_scan import discover_insertion_points
+from modules.home import kerf_home
 from modules.repeater import Repeater
 
-CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+CONFIG_DIR = kerf_home()
 SETTINGS_PATH = CONFIG_DIR / "assistant.json"
 CHAT_PATH = CONFIG_DIR / "assistant-chat.json"
 HISTORY_KEEP = 80

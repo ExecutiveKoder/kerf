@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 import time
 import uuid
@@ -285,7 +284,8 @@ def enrich_finding(f: dict) -> dict:
 
 
 def _home() -> Path:
-    return Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    from modules.home import kerf_home
+    return kerf_home()
 
 
 def _path() -> Path:

@@ -23,7 +23,8 @@ ISSUER_FILE = Path(__file__).resolve().parent.parent / "issuer.json"
 
 
 def _home() -> Path:
-    return Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    from modules.home import kerf_home
+    return kerf_home()
 
 
 def _settings_path() -> Path:

@@ -16,7 +16,7 @@ import sys
 # Make the package importable whether run from repo root or elsewhere.
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 
-from dastday.app import run
+from kerf.app import run
 
 
 def main() -> None:
@@ -25,7 +25,7 @@ def main() -> None:
     p.add_argument("--proxy-port", type=int, default=8080)
     p.add_argument("--ui-host", default="127.0.0.1")
     p.add_argument("--ui-port", type=int, default=8000)
-    p.add_argument("--db", default="dastday.db")
+    p.add_argument("--db", default="kerf.db")
     args = p.parse_args()
 
     try:

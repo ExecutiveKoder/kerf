@@ -72,7 +72,7 @@ def test_scan_text_dangerous_exec():
 
 
 def test_store_add_and_auth():
-    os.environ["DASTDAY_HOME"] = tempfile.mkdtemp(prefix="kerf-repos-")
+    os.environ["KERF_HOME"] = tempfile.mkdtemp(prefix="kerf-repos-")
     store = RepoStore()
     row = store.add("https://github.com/acme/app")
     assert row["owner"] == "acme"
@@ -121,7 +121,7 @@ def test_package_lock_includes_dev():
 
 
 def test_stop_flags_a_running_scan():
-    os.environ["DASTDAY_HOME"] = tempfile.mkdtemp(prefix="kerf-repos-")
+    os.environ["KERF_HOME"] = tempfile.mkdtemp(prefix="kerf-repos-")
     store = RepoStore()
     store.configure(authorized=True)
     row = store.add("acme/app")
@@ -150,7 +150,7 @@ def test_enrich_finding_has_fix_steps():
 
 def test_heal_stale_scanning():
     home = tempfile.mkdtemp(prefix="kerf-repos-")
-    os.environ["DASTDAY_HOME"] = home
+    os.environ["KERF_HOME"] = home
     store = RepoStore()
     store.configure(authorized=True)
     row = store.add("acme/app")

@@ -21,7 +21,8 @@ from modules.brand import NAME
 from modules.projects import _slug
 
 def _home() -> Path:
-    return Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    from modules.home import kerf_home
+    return kerf_home()
 
 
 def _settings_path() -> Path:

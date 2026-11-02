@@ -2,21 +2,20 @@
 Match-and-replace plus intercept filter rules.
 
 Rules rewrite headers, URLs, or bodies on the live proxy path. Filters decide
-which requests the intercept queue actually holds. Both persist under ~/.dastday.
+which requests the intercept queue actually holds. Both persist under ~/.kerf.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import re
 import uuid
-from pathlib import Path
 
 from core.interceptor import BaseAddon
 from core.http_message import Flow, HttpRequest, HttpResponse
+from modules.home import kerf_home
 
-CONFIG_DIR = Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+CONFIG_DIR = kerf_home()
 RULES_PATH = CONFIG_DIR / "rules.json"
 
 LOCATIONS = (

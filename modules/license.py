@@ -9,7 +9,6 @@ commercial licenses are sold via accounts@kerf.software.
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
 
@@ -30,7 +29,8 @@ ATTEST_REQUIRED = (
 
 
 def _home() -> Path:
-    return Path(os.environ.get("DASTDAY_HOME", Path.home() / ".dastday"))
+    from modules.home import kerf_home
+    return kerf_home()
 
 
 def _attest_path() -> Path:
